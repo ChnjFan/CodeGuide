@@ -16,6 +16,6 @@
 * [OpenAPI](basics/openapi.md)
 * [Integrations](basics/integrations.md)
 
-# Network
+## Network
 
-* [Editor](network/cs144.md)
+* [CS144](network/cs144.md)
