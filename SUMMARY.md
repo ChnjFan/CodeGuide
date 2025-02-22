@@ -18,4 +18,5 @@
 
 ## Network
 
-* [CS144](network/cs144.md)
+* [CS144](network/cs144/README.md)
+  * [Lab Checkpoint 0: networking warmup](network/cs144/lab-checkpoint-0-networking-warmup.md)
