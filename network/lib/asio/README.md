@@ -105,7 +105,7 @@ int main() {
 
 异步操作是与同步操作不同的事件序列：
 
-![async_op1](D:\项目文件\CodeGuide\network\lib\asio\async_op1.png)
+![async_op1](./async_op1.png)
 
 1. 通过调用 **I/O 对象**启动 connect 的异步操作：
 
@@ -123,7 +123,7 @@ void your_completion_handler(const boost::system::error_code& ec);
 
 3. **I/O 执行上下文**调用系统调用以执行连接操作。此时与同步操作阻塞不同，异步操作会立即返回，允许其他擦操作继续执行。
 
-   ![async_op2](D:\项目文件\CodeGuide\network\lib\asio\async_op2.png)
+   ![async_op2](./async_op2.png)
 
 4. 操作系统在后台尝试建立连接，连接完成后将结果放入队列中，等待 **I/O 执行上下文**来检索。
 5.  **I/O 执行上下文**通过调用 `io_context.run()` 检索操作结果，其中 `io_context.run()` 会一直阻塞直到所有异步操作完成。

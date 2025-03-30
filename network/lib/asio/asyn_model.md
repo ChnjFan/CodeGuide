@@ -35,7 +35,7 @@ Boost.Asio 库的核心是基于异步模型的，这种模型将异步操作作
 
 **示意图：**
 
-![async_agent_chain](D:\项目文件\CodeGuide\network\lib\asio\async_agent_chain.png)
+![async_agent_chain](./async_agent_chain.png)
 
 可以将异步代理视为一个循环结构，不断等待异步操作完成，并执行相应的处理程序。
 
