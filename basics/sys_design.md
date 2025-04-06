@@ -53,9 +53,61 @@ icon: markdown
 
 负载均衡器就是将负载（用户请求）均匀分配到系统服务器上。例如，用户在与系统进行交互过程中，服务器 2 可能会在第一个请求中提供服务，然后服务器 9 为用户第二个请求提供服务。
 
+### 延迟与吞吐量
+
+- **延迟**是执行操作或运算结果花费的时间。
+- **吞吐量**是单位时间内执行此操作或运算的数量。
+
+通常，系统设计以可接受延迟下最大化吞吐量为目标。
+
+### 可用性与一致性
+
+#### CAP 理论
+
+![CAP理论](./CAP-overview.png)
+
+CAP 理论提出，在分布式系统中，只能同时满足下列的两点：
+
+- 一致性：每次访问都能获得最新数据，但可能会收到错误响应。
+- 可用性：每次访问都能收到正确响应，但获取到的数据不一定是最新数据。
+- 分区容错性：任意分区网络故障的情况下系统仍能继续运行。
+
+网络并不总是可靠的，在分布式系统中任意时刻都可能发生网络错误，所以系统通常支持分区容错性。那么根据 CAP 理论，系统设计时需要在一致性和可用性中进行权衡。
+
+1. CP：一致性和分区容错性。等待分区节点的响应可能会导致延时错误，如果业务需求需要原子读写，可以选择 CP。
+2. AP：可用性和分区容错性。响应分区节点上的可用数据，数据可能不是最新的。如果业务需求允许最终一致性，或外部故障时要求系统继续运行，可以选择 AP。
+
+#### 一致性模式
+
+在 CAP 理论中一致性的定义——每次访问都能获取到最新数据，但可能会收到错误响应。系统在处理并发操作时，如何保证数据的正确性和同步性，常见的一致性模式如下：
+
+**弱一致性**
+
+数据写入操作执行后，可能系统还没有写入数据库，此时访问可能看不到写入数据，尽力优化让用户能访问最新数据。
+
+弱一致性一般应用在 VoIP、视频聊天和实时多人游戏等系统中，例如在通话中网络异常导致丢失数据，重新连接后无法收到丢失的数据内容。
+
+**最终一致性**
+
+数据写入操作执行后，系统各节点可能短时间存在不一致的状态，如果没有新的数据更新，所有数据副本最终都会收敛到统一状态。
+
+在分布式缓存系统（NoSQL 或 CDN）通常采用最终一致性提高响应速度和可扩展性，允许缓存在短时间不同步，但最终同步至最新状态。DNS 系统在域名解析时可能会短暂不一致，但最终解析结果都会一致。
+
+最终一致性的应用场景中，系统更关注高可用性和容错性，对数据立即一致性要求不是特别高。通过异步复制、版本控制和冲突解决机制实现，牺牲部分实时的一致性保证，提供更好的性能和可扩展性。
+
+**强一致性**
+
+数据写入操作执行后，访问数据能立刻可见，无论客户端访问哪个节点获取数据，系统都要表现得像只有一个单一副本数据，确保数据的准确性和实时性。
+
+在文件系统和关系型数据库，金融转账支付等系统中使用强一致性，确保准确的数据实时更新显示。
+
+## 设计实践
+
+
+
 ## 参考资料
 
-1. [system-design-primer]([donnemartin/system-design-primer: Learn how to design large-scale systems. Prep for the system design interview. Includes Anki flashcards.](https://github.com/donnemartin/system-design-primer/tree/master))
+1. [donnemartin/system-design-primer: Learn how to design large-scale systems. Prep for the system design interview. Includes Anki flashcards.](https://github.com/donnemartin/system-design-primer)
 2. [CS75 (Summer 2012) Lecture 9 Scalability Harvard Web Development David Malan](https://www.youtube.com/watch?v=-W9F__D3oY4)
 3. [Le Cloud Blog](https://web.archive.org/web/20221030091841/http://www.lecloud.net/tagged/scalability/chrono)
-
+4. [CAP Theorem: Revisited](https://robertgreiner.com/cap-theorem-revisited/)
