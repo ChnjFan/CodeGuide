@@ -9,7 +9,7 @@
 
 ## C++ 语言基础
 
-* [Editor](basics/editor.md)
+* [系统设计](basics/sys_design.md)
 * [Markdown](basics/markdown.md)
 * [Images & media](basics/images-and-media.md)
 * [Interactive blocks](basics/interactive-blocks.md)
