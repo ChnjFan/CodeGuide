@@ -75,6 +75,15 @@ public:
         keyNodeMap.insert({key, newNode});
     }
 
+    void remove(Key key) {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto it = keyNodeMap.find(key);
+        if (it != keyNodeMap.end()) {
+            removeNode(it->second);
+            keyNodeMap.erase(it);
+        }
+    }
+
 private:
     void moveToMostRecent(CacheNodePtr node) {
         removeNode(node);
@@ -102,9 +111,38 @@ private:
     std::unordered_map<Key, CacheNodePtr> keyNodeMap;   // key-node哈希表，用来映射链表节点
 };
 
-// 测试LRUCache的性能和命中率
 template<typename Key, typename Value>
-void testLRUCachePerformance(LRUCache<Key, Value>& cache, size_t testSize, size_t keyRange) {
+class LRUKCache : public LRUCache<Key, Value> {
+public:
+    LRUKCache(size_t capacity, size_t k, size_t historyCapacity) : LRUCache<Key, Value>(capacity), k(k), historyList(std::make_unique<LRUCache<Key, int>>(historyCapacity)) {}
+
+    bool get(Key key, Value& value) {
+        int count = historyList->get(key);   // 获取历史访问缓存队列中key对应的访问次数
+        historyList->put(key, count + 1);   // 将key对应的访问次数加1，并更新历史访问缓存队列
+        return LRUCache<Key, Value>::get(key, value);
+    }
+
+    void put(Key key, Value value) {
+       if (LRUCache<Key, Value>::get(key) != "") {   // 如果缓存中存在key对应的缓存节点，则更新缓存节点的值并将其移动到最近使用的位置
+            LRUCache<Key, Value>::put(key, value);
+        }
+        int count = historyList->get(key);   // 获取历史访问缓存队列中key对应的访问次数
+        historyList->put(key, count + 1);
+        if (count >= k) {   // 如果key对应的访问次数大于等于k，则将其从历史访问缓存队列中移除
+            historyList->remove(key);
+            LRUCache<Key, Value>::put(key, value);
+       }
+    }
+
+private:
+    size_t k;   // 缓存节点的访问次数阈值，当缓存节点的访问次数超过k时，该节点将被视为最近使用的节点。
+    std::unique_ptr<LRUCache<Key, int>> historyList;   // 历史访问缓存队列
+};
+
+// 测试LRUCache的性能和命中率
+void testLRUCachePerformance(size_t testSize, size_t keyRange) {
+    LRUCache<int, std::string> cache(5);
+    LRUKCache<int, std::string> kCache(5, 2, 10);
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, keyRange - 1);
@@ -112,22 +150,32 @@ void testLRUCachePerformance(LRUCache<Key, Value>& cache, size_t testSize, size_
     size_t hitCount = 0;
     size_t missCount = 0;
 
+    size_t khitCount = 0;
+    size_t kmissCount = 0;
+
     // 记录开始时间
     auto start = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i < testSize; ++i) {
-        Key key = dis(gen);
-        Value value;
-        cache.put(key, Value());
+        int key = dis(gen);
+        std::string value = "Value" + std::to_string(key);
+        cache.put(key, value);
+        kCache.put(key, value);
     }
 
     for (size_t i = 0; i < testSize; ++i) {
-        Key key = dis(gen);
-        Value value;
+        int key = dis(gen);
+        std::string value = "Value" + std::to_string(key);
         if (cache.get(key, value)) {
             ++hitCount;
         } else {
             ++missCount;
+        }
+
+        if (kCache.get(key, value)) {
+            ++khitCount; 
+        } else {
+            ++kmissCount;
         }
     }
 
@@ -136,14 +184,18 @@ void testLRUCachePerformance(LRUCache<Key, Value>& cache, size_t testSize, size_
     std::chrono::duration<double> elapsed = end - start;
 
     std::cout << "Test completed in " << elapsed.count() << " seconds." << std::endl;
-    std::cout << "Cache hits: " << hitCount << std::endl;
-    std::cout << "Cache misses: " << missCount << std::endl;
+    std::cout << "LRU Cache hits: " << hitCount << std::endl;
+    std::cout << "LRU Cache misses: " << missCount << std::endl;
     double hitRate = static_cast<double>(hitCount) / (hitCount + missCount);
-    std::cout << "Cache hit rate: " << hitRate * 100 << "%" << std::endl;
+    std::cout << "LRU Cache hit rate: " << hitRate * 100 << "%" << std::endl;
+
+    std::cout << "LRU-k Cache hits: " << khitCount << std::endl;
+    std::cout << "LRU-k Cache misses: " << kmissCount << std::endl;
+    hitRate = static_cast<double>(khitCount) / (khitCount + kmissCount);
+    std::cout << "LRU-k Cache hit rate: " << hitRate * 100 << "%" << std::endl;
 }
 
 int main() {
-    LRUCache<int, std::string> cache(5);
-    testLRUCachePerformance(cache, 1000000, 100);
+    testLRUCachePerformance(100000, 10);
     return 0;
 }

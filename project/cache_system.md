@@ -38,7 +38,7 @@ FIFO 不考虑数据访问的频繁程度或者依然处于活跃状态，会导
 
 ### LRU
 
-最近最少算法在缓存满的时候，有限淘汰最久未被访问的数据。
+最近最少算法在缓存满的时候，优先淘汰最久未被访问的数据。
 
 每当数据被访问时，需要更新数据的访问时间。常见的实现方式是双向链表+哈希表，通过哈希表快速定位缓存项，双向链表维持数据访问顺序，可以实现 O(1) 时间复杂度的访问、更新和删除操作。
 
@@ -147,6 +147,55 @@ private:
 };
 ```
 
+通过双向链表+哈希表实现的 LRU 算法可以满足缓存需求，热点数据较多时有较高的命中率，但是在某些场景下仍有不足：
+
+1. 循环重复数据可能会被逐步清空，几乎无法命中。
+2. 缓存污染：加载冷数据可能会导致热点数据被淘汰，降低缓存利用率。
+3. 最近最少使用并不一定是冷数据，在某些时刻可能恰巧没有访问到。
+4. 多线程高并发场景，锁粒度太大。
+
+**LRU-k**
+
+LRU-k 算法是对 LRU 的改进，基础 LRU 算法的访问数据进入缓存队列只需要进行一次 put 操作，而 LRU-k 需要被访问 k 次才能被放入缓存中。
+
+LRU-k 除了缓存队列外，还需要一个数据访问历史队列，用来保存未在缓存队列数据的访问次数，当数据被访问次数超过 k 次，才将缓存数据添加到缓存队列中。
+
+```cpp
+template<typename Key, typename Value>
+class LRUKCache : public LRUCache<Key, Value> {
+public:
+    LRUKCache(size_t capacity, size_t k, size_t historyCapacity) : LRUCache<Key, Value>(capacity), k(k), historyList(std::make_unique<LRUCache<Key, int>>(historyCapacity)) {}
+
+    bool get(Key key, Value& value) {
+        int count = historyList->get(key);   // 获取历史访问缓存队列中key对应的访问次数
+        historyList->put(key, count + 1);   // 将key对应的访问次数加1，并更新历史访问缓存队列
+        return LRUCache<Key, Value>::get(key, value);
+    }
+
+    void put(Key key, Value value) {
+       if (LRUCache<Key, Value>::get(key) != "") {   // 如果缓存中存在key对应的缓存节点，则更新缓存节点的值并将其移动到最近使用的位置
+            LRUCache<Key, Value>::put(key, value);
+        }
+        int count = historyList->get(key);   // 获取历史访问缓存队列中key对应的访问次数
+        historyList->put(key, count + 1);
+        if (count >= k) {   // 如果key对应的访问次数大于等于k，则将其从历史访问缓存队列中移除
+            historyList->remove(key);
+            LRUCache<Key, Value>::put(key, value);
+       }
+    }
+
+private:
+    size_t k;   // 缓存节点的访问次数阈值，当缓存节点的访问次数超过k时，该节点将被视为最近使用的节点。
+    std::unique_ptr<LRUCache<Key, int>> historyList;   // 历史访问缓存队列
+};
+```
+
+
+
+### LFU
+
+
+
 
 
 ## 数据更新与一致性策略
@@ -159,4 +208,6 @@ private:
 
 ## 参考资料
 
-[【架构师面试-缓存与搜索-1】-缓存与缓存置换策略源码实现_自适应缓存替换算法-CSDN博客](https://blog.csdn.net/chongfa2008/article/details/121956961)
+1. [【架构师面试-缓存与搜索-1】-缓存与缓存置换策略源码实现_自适应缓存替换算法-CSDN博客](https://blog.csdn.net/chongfa2008/article/details/121956961)
+2. [146. LRU 缓存 - 力扣（LeetCode）](https://leetcode.cn/problems/lru-cache/solutions/2456294/tu-jie-yi-zhang-tu-miao-dong-lrupythonja-czgt/)
+3. [LRU算法及其优化策略——算法篇LRU算法全称是最近最少使用算法（Least Recently Use），广泛的应用于缓 - 掘金](https://juejin.cn/post/6844904049263771662)
