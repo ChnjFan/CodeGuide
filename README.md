@@ -18,12 +18,15 @@ layout:
     visible: true
 ---
 
-# Welcome
+# 编程指导手册
 
-Welcome to the GitBook Starter Template! Here you'll get an overview of all the amazing features GitBook offers to help you build beautiful, interactive documentation.
+本手册包含了学习过程中的学习笔记，包含了语言、算法、计算机基础、项目工具等。
 
-You'll see some of the best parts of GitBook in action — and find help on how you can turn this template into your own.
+## 算法
 
-### Jump right in
+算法学习笔记和视频，包含 AI 学习部分。
 
-<table data-view="cards"><thead><tr><th></th><th></th><th data-hidden data-card-cover data-type="files"></th><th data-hidden></th><th data-hidden data-card-target data-type="content-ref"></th></tr></thead><tbody><tr><td><strong>Getting Started</strong></td><td>Create your first site</td><td></td><td></td><td><a href="getting-started/quickstart.md">quickstart.md</a></td></tr><tr><td><strong>Basics</strong></td><td>Learn the basics of GitBook</td><td></td><td></td><td><a href="broken-reference">Broken link</a></td></tr><tr><td><strong>Publish your docs</strong></td><td>Share your docs online</td><td></td><td></td><td><a href="getting-started/publish-your-docs.md">publish-your-docs.md</a></td></tr></tbody></table>
+- [算法笔记](./Algorithms/README.md)
+  - [正则递归栈溢出问题](./Algorithms/regexp_err.md)
+- [缓存策略](./Algorithms/cache.md)
+
