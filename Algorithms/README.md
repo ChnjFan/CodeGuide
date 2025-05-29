@@ -217,8 +217,59 @@ struct ListNode {
 
 - [螺旋矩阵](https://leetcode.cn/problems/spiral-matrix/solutions/2362055/54-luo-xuan-ju-zhen-mo-ni-qing-xi-tu-jie-juvi) - 所有螺旋类题目均可使用该思路遍历二维数组。
 
+## 栈与队列
+
+### 栈
+
+栈（stack）是一种遵循先入后出逻辑的线性数据结构。
+
+可以使用数组或链表实现栈。
+
+- 数组实现的栈，入栈和出栈效率高，只有在出发扩容时效率会降低，可能会造成一定的空间浪费。
+- 链表实现的栈，扩容灵活，但入栈操作效率相对较低，更节省空间。
+
+### 队列
+
+队列（queue）是一种遵循先入先出规则的线性数据结构。
+
+链表实现的队列比较简单，入队出队直接操作链表的头节点和尾节点即可。
+
+数组实现队列，由于出队后所有元素要向前移动，操作效率低。
+
+使用环形数组来实现队列，但是队列的容量是固定的，如果要扩容需要重新申请内存并复制原来的队列。
+
+```cpp
+// 容量比初始化时多一个，末尾留一个哨兵位置
+ArrayQueue(int t_capacity) : front(0), rear(0), capacity(t_capacity+1) {
+    val = new T[capacity];
+}
+
+void push(T t_val) {
+    if ((rear + 1) % capacity == front) {
+        std::cout << "Queue is full." << std::endl;
+        return;
+    }
+    val[rear] = t_val;
+    rear = (rear + 1) % capacity;
+}
+
+T pop() {
+    if (isEmpty()) {
+        std::cout << "Queue is empty." << std::endl;
+        throw std::out_of_range("Queue is empty.");
+    }
+    T res = val[front];
+    front = (front + 1) % capacity;
+    return res;
+}
+```
+
+### 典型题目
+
+- [有效的括号](https://leetcode.cn/problems/valid-parentheses?envType=study-plan-v2&envId=2024-spring-sprint-100) - 使用栈判断字符串中的括号是否正确。
+- [移除 K 位数字](https://leetcode.cn/problems/remove-k-digits/description/?envType=study-plan-v2&envId=2024-spring-sprint-100)
+
 ## 参考文献
 
 1. [Hello算法](https://www.hello-algo.com/chapter_hello_algo/)
-2. 
 
