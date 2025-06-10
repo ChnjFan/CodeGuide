@@ -30,3 +30,9 @@ layout:
   - [正则递归栈溢出问题](./Algorithms/regexp_err.md)
 - [缓存策略](./Algorithms/cache.md)
 
+## C++
+
+C++ 特性总结。
+
+- [现代 C++ 核心指南](./C++/README.md)
+

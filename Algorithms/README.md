@@ -321,7 +321,104 @@ T pop() {
 | 安全等级 | 低，已被成功攻击               | 低，已被成功攻击 | 高                           | 高                  |
 | 应用     | 已被弃用，仍用于数据完整性检查 | 已被弃用         | 加密货币交易验证、数字签名等 | 可用于替代 SHA-2    |
 
+## 二叉树
 
+二叉树是一种非线性数据结构，体现分支逻辑。与链表类似，二叉树的基本单元是节点，每个节点包含值、左子节点引用和右子节点引用。
+
+```cpp
+/* 二叉树节点结构体 */
+struct TreeNode {
+    int val;          // 节点值
+    TreeNode *left;   // 左子节点指针
+    TreeNode *right;  // 右子节点指针
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+};
+```
+
+二叉树类型：
+
+- 完美二叉树：所有层的节点完全填满，叶子节点的度为 0，节点总数为 2^(h+1) - 1 个。
+- 完全二叉树：底层节点可以不完全填满，且底层节点必须从左到右一次连续填充。
+- 平衡二叉树：任意节点的左子树和右子树高度差的绝对值不超过 1。
+
+![](./balanced_binary_tree.png)
+
+### 二叉树遍历
+
+二叉树的遍历方式跟链表一样，通过指针逐个访问节点。
+
+#### 层序遍历
+
+层序遍历本质上属于<u>**广度优先遍历（BFS）**</u>，体现逐渐向外扩展的逐层遍历方式。
+
+借助队列实现广度优先遍历：
+
+```cpp
+/* 层序遍历 */
+vector<int> levelOrder(TreeNode *root) {
+    // 初始化队列，加入根节点
+    queue<TreeNode *> queue;
+    queue.push(root);
+    // 初始化一个列表，用于保存遍历序列
+    vector<int> vec;
+    while (!queue.empty()) {
+        TreeNode *node = queue.front();
+        queue.pop();              // 队列出队
+        vec.push_back(node->val); // 保存节点值
+        if (node->left != nullptr)
+            queue.push(node->left); // 左子节点入队
+        if (node->right != nullptr)
+            queue.push(node->right); // 右子节点入队
+    }
+    return vec;
+}
+```
+
+#### 前序、中序、后续遍历
+
+前序、中序和后序遍历都属于**<u>深度优先遍历（DFS）</u>**，体现“先走到尽头，再回溯继续”的遍历方式。
+
+![](./binary_tree_dfs.png)
+
+深度优先搜索通常基于递归实现：
+
+```cpp
+/* 前序遍历 */
+void preOrder(TreeNode *root) {
+    if (root == nullptr)
+        return;
+    // 访问优先级：根节点 -> 左子树 -> 右子树
+    vec.push_back(root->val);
+    preOrder(root->left);
+    preOrder(root->right);
+}
+
+/* 中序遍历 */
+void inOrder(TreeNode *root) {
+    if (root == nullptr)
+        return;
+    // 访问优先级：左子树 -> 根节点 -> 右子树
+    inOrder(root->left);
+    vec.push_back(root->val);
+    inOrder(root->right);
+}
+
+/* 后序遍历 */
+void postOrder(TreeNode *root) {
+    if (root == nullptr)
+        return;
+    // 访问优先级：左子树 -> 右子树 -> 根节点
+    postOrder(root->left);
+    postOrder(root->right);
+    vec.push_back(root->val);
+}
+```
+
+### 数组表示
+
+使用数组按照层序遍历的顺序保存二叉树节点。
+
+某节点索引为 i，则该节点的左子节点索引为 2i+1，右子节点索引为 2i+2，如果没有元素应该置为 None。
 
 ## 参考文献
 
