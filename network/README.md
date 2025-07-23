@@ -30,7 +30,7 @@
 
 - **套接字（Socket）**：主机+端口，详细可见[网络编程和套接字](./socket.md)。
 
-传输层只有 UDP 协议和 TCP 协议。
+传输层只有 UDP 协议和 [TCP 协议](./Protocol/tcp.md)。
 
 ##### UDP 协议
 
