@@ -262,54 +262,31 @@ TCP 拥塞控制通过**慢启动、拥塞避免、快速重传、快速恢复**
 
 #### 慢启动
 
-- 连接建立后，`cwnd` 从 1 个 MSS 开始，每收到一个 ACK（确认）就增加 1 个 MSS（指数增长）。
-- 当 `cwnd` 达到 `ssthresh` 时，进入 “拥塞避免” 阶段。
+慢启动在新 TCP 连接建立或检测到 RTO 超时丢包后执行，通过指数级增加拥塞窗口快速探测网络带宽。
 
-```cpp
-static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
-{
-	struct tcp_sock *tp = tcp_sk(sk);
-	struct bictcp *ca = inet_csk_ca(sk);
+- 连接建立后，`cwnd` 从 1 个 MSS 开始。
+- 发送端每收到一个 RTT 内的 ACK，`cwnd` 大小就翻一倍：
+  - 第一个 RTT 周期：`cwnd` = 1，发送一个 TCP 段后收到一个 ACK，`cwnd` 增长到 2 MSS。
+  - 第二个 RTT 周期：`cwnd` = 2，发送两个 TCP 段后收到两个 ACK，`cwnd`  增长到 4 MSS。
 
-	// 判断是否受拥塞控制，RFC2861：只有当 cwnd 完全利用时才增加大小
-	if (!tcp_is_cwnd_limited(sk))
-		return;
+- 当 `cwnd` 增长到 `ssthresh` 时，进入 “拥塞避免” 阶段。
+- 已经出现数据包丢失，说明网络已经发送拥塞，慢启动立即结束：
+  - 超时重传：RTO 超时未收到 ACK。
+    - 将 `ssthresh` 调整为当前 `cwnd` 的 1/2
+    - 将 `cwnd` 调整为初始值
+    - 重新进入慢启动阶段探测网络
 
-	// 判断是否在慢启动阶段
-	// 慢启动的条件是：发送窗口 send_cwnd < ssthresh
-	if (tcp_in_slow_start(tp)) {
-		if (hystart && after(ack, ca->end_seq))
-			bictcp_hystart_reset(sk);
-		acked = tcp_slow_start(tp, acked);
-		if (!acked)
-			return;
-	}
-	bictcp_update(ca, tp->snd_cwnd, acked);
-	tcp_cong_avoid_ai(tp, ca->cnt, acked);
-}
+  - 快速重传：收到 3 个相同 ACK 后判定为轻微拥塞。
+    - 触发快速重传，立即重传丢失的段。
+    - 将 `ssthresh` 调整为当前 `cwnd` 的 1/2。
+    - 将 cwnd 设为 “新的 ssthresh”，直接进入 “拥塞避免阶段”。
 
-u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
-{
-  // cwnd 没个 ack 增加 1 个 MSS，但是不能超过 ssthresh
-	u32 cwnd = min(tp->snd_cwnd + acked, tp->snd_ssthresh);
-	// 与旧窗口比较，防止增长超过 ssthresh
-	acked -= cwnd - tp->snd_cwnd;
-	tp->snd_cwnd = min(cwnd, tp->snd_cwnd_clamp);
-
-	return acked;
-}
-```
 
 #### 拥塞避免
 
-- `cwnd` 不再指数增长，而是每经过一个 RTT（往返时间）增加 1 个 MSS（线性增长），避免快速触发拥塞。
+拥塞避免紧跟在慢启动之后，其核心目标是**在充分利用网络带宽的同时，避免网络因数据包过多而陷入拥塞**。
 
-CUBIC 算法中，窗口增长基于三次函数，其核心是快速接近上次拥塞的窗口 last_max_cwnd，同时避免频繁拥塞。
+拥塞避免采用 “线性增长” 策略，更平缓地试探网络承载能力。
 
-#### 拥塞检测与响应
 
-当检测到拥塞（丢包或延迟增加）时，调整 `ssthresh` 和 `cwnd`：
-
-- **超时重传**：认为拥塞严重，`ssthresh = cwnd / 2`，`cwnd` 重置为 1（重新进入慢启动）。
-- **收到 3 个重复 ACK**：认为发生轻微拥塞（可能仅单包丢失），触发 “快速重传” 和 “快速恢复”。
 
