@@ -40,6 +40,34 @@ lo0        16384 fandemac-mi fe80:1::1            88196     -    88196     -    
 en1        1500  fandemac-mi fe80:f::10ca:d342  2683439     -  1123699     -     -
 ```
 
+- **网络协议统计信息**：系统中各类网络协议（主要是 TCP、UDP、ICMP 等）的详细统计数据，帮助分析网络连接状态、排查网络问题。
+
+```bash
+fan@192 ~ % netstat -s
+Tcp:
+    52321 active connections openings
+    121 passive connection openings
+    345 failed connection attempts
+    123 connection resets received
+    0 connections established
+    123456 segments sent
+    789012 segments received
+    567 segments retransmitted  # TCP 重传数
+    ...
+Udp:
+    9876 packets received
+    123 packet receive errors
+    8765 packets sent
+    ...
+Icmp:
+    456 ICMP messages received
+    123 echo requests (ping)
+    123 echo replies
+    ...
+```
+
+
+
 ## 查看网络连接端口
 
 使用本机的 SSH 连接后发现存在 ESTABLISHED 状态的连接：
