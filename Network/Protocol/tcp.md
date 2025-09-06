@@ -4,7 +4,7 @@ TCP（Transmission Control Protocol，传输控制协议）是一种**面向连�
 
 [TOC]
 
-## 协议报文
+## 报文结构
 
 TCP 报文的基本头部固定 20 个字节，紧跟在 IP 数据报头部。
 
