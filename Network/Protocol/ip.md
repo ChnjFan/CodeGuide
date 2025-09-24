@@ -177,6 +177,8 @@ Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
 
 当 IP 数据包到达路由器时，路由器按照 “接收校验→路由查找→转发处理→发送” 四个阶段进行处理并转发。
 
+路由器只考虑将 IP 数据包转发到哪个下一跳，不会关心或修改数据包的源 IP 地址和目的 IP 地址。
+
 **1. 接收数据报进行合法性校验**
 
 - 版本校验：IPv4 或 IPv6 版本号。
@@ -206,4 +208,8 @@ Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
 **4. 发送数据包**
 
 路由器将封装好的二层帧的数据报通过出接口发送到下一跳设备。
+
+## 分片重组
+
+IP 数据报在传输中会经过各种网络链路，每条链路都有最大传输单元 MTU 的限制，当数据报大小超过 MTU 后，就需要将其分割成多个较小的片段进行传输。
 
