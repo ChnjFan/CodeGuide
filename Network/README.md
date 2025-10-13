@@ -14,6 +14,7 @@
 
 - [HTTP 详解](./Protocol/http.md)
 - [DNS 协议](./Protocol/dns.md) - 域名系统协议，用于域名与 IP 地址的映射。
+- [DHCP 协议](./Protocol/dhcp.md) - 动态主机配置协议，用于自动分配 IP 地址和网络配置。
 
 ### 传输层
 
@@ -31,7 +32,6 @@
 - [IP 协议](./Protocol/ip.md) -  网络层引入 IP 地址，通过子网掩码确定计算机所在子网，确定子网后根据 MAC 地址将数据包传送到子网的目标网卡。
 - [ICMP 协议](./Protocol/icmp.md) - 传递网络控制信息和错误报告。
 - [IGMP 协议](./Protocol/igmp.md) - 管理组播通信，主机通过 IGMP 通告路由器加入或离开某个组播组。
-- [DHCP 协议](./Protocol/dhcp.md) - 动态主机配置协议，用于自动分配 IP 地址和网络配置。
 
 #### 路由协议
 
