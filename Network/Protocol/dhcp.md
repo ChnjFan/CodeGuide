@@ -83,12 +83,41 @@ DHCP 服务器接收到 Discover 报文后，向局域网内所有设备发送�
 
 - Yiaddr 字段填写分配的 IP 地址。
 - 选项字段 Type = 53，Value = 2 标识 Offer 报文。
-- 选项字段 Type = 51 表示 IP 租用期，单位为秒，客户端需要在到期前续租。
-- 选项中还包括子网掩码、网关 IP 地址、DNS 服务器地址。
+- 选项字段 Type = 51 标识 IP 租用期，单位为秒，客户端需要在到期前续租。
+- 选项中还包括子网掩码（Type = 1）、网关 IP 地址（Type = 3）、DNS 服务器地址（Type = 6）。
 
+⚠️注意：DHCP 服务端向客户端发送 Offer 报文前，需要执行 ARP 探测来确保分配的 IP 地址没有被其他设备占用，避免 IP 冲突。
 
+DHCP 服务端发送完 ARP 探测报文后，会启动探测超时定时器，根据是否收到 ARP 应答处理。
 
+- 超时未收到应答：将该 IP 设置为待分配状态，构造 DHCP Offer 报文发给客户端。
+- 超时前收到应答：当前 IP 标记为“不可用”，从地址池重新选择一个未分配 IP，再次发送 ARP 探测报文。
 
+如果地址池中的所有 IP 地址均被探测已占用，服务端不会发送 DHCP Offer 报文，客户端持续发送 DHCP Discover 直到获取到可用的 IP 地址。
 
+### DHCP Request
 
+DHCP 客户端决定接收服务器发送的 Offer 报文，通过广播 DHCP Request 报文告知所有服务器选择的 IP 地址。
+
+IP 地址租期过半后，客户端也会发送 DHCP Request 报文进行续租。
+
+- Ciaddr 字段首次请求时填写 0.0.0.0，续租时填写正在使用的 IP 地址。
+- Yiaddr 字段填写 0.0.0.0，该字段只能服务端填写。
+- Siaddr 字段填写选择的 DHCP 服务器 IP 地址。
+- 选项字段 Type = 53，Value = 3 标识 Request 报文。
+- 选项字段 Type = 54 标识客户端选择的 DHCP 服务器 IP 地址。
+- 选项字段 Type = 50 标识分配的 IP 地址。
+
+### DHCP ACK
+
+DHCP 服务端接收到 Request 报文后，确认 IP 地址仍可用后发送 DHCP ACK 报文，客户端收到后正式配置 IP 地址使用网络。
+
+DHCP ACK 报文除了包含客户端网络参数外，明确了 IP 地址的租用期限。
+
+- Yiaddr 字段填写分配的 IP 地址。
+- Siaddr 字段填写 DHCP 服务器 IP 地址，用于客户端续租时通信。
+- 选项字段 Type = 53，Value = 5 标识 ACK 报文。
+- 选项字段 Type = 51 标识 IP 地址的租用时间。
+
+## DHCP 中继
 
