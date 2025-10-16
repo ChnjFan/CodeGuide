@@ -119,5 +119,78 @@ DHCP ACK 报文除了包含客户端网络参数外，明确了 IP 地址的租�
 - 选项字段 Type = 53，Value = 5 标识 ACK 报文。
 - 选项字段 Type = 51 标识 IP 地址的租用时间。
 
+### DHCP 状态机
+
+DHCP 客户端使用状态机控制获取 IP 地址流程，确保客户端能动态、稳定地获取网络配置。
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    [*] --> 初始化(Init) : 客户端启动
+    
+    初始化(Init) --> 选择(Selecting) : 发送DHCP Discover后
+    选择(Selecting) --> 请求(Requesting) : 选Offer，发DHCP Request后
+    
+    请求(Requesting) --> 绑定(Bound) : 收DHCP Ack（获IP）
+    请求(Requesting) --> 初始化(Init) : 收DHCP Nak（IP冲突）
+    
+    绑定(Bound) --> 更新(Renew) : T1 到期
+    更新(Renew) --> 绑定(Bound) : 接收 ACK
+    更新(Renew) --> 重绑定(Rebinding) : T2 到期
+    重绑定(Rebinding) --> 绑定(Bound) : 接收 ACK
+    重绑定(Rebinding) --> 初始化(Init) : 租约到期
+```
+
+
+
+**初始化状态（Init State）**
+
+客户端首次启动或 IP 地址租约到期后，无有效的 IP 地址和网络配置。
+
+此时客户端发送 DHCP Discover 广播包向服务端请求 IP 地址，发送完后立即进入选择状态。
+
+**选择状态（Selecting State）**
+
+客户端选择状态下等待 DHCP 服务器的响应。
+
+该状态下客户端可能接收多个 DHCP Offer 广播包，需要从多个 Offer 中选择一个，发送 DHCP Request 广播包。
+
+**请求状态（Requesting State）**
+
+客户端发送 Request 报文后进入请求状态，等待目标服务器的最终确认。
+
+目标服务端接收到 Request 报文后，检查 IP 是否被占用：
+
+- 未被占用：发送 DHCP ACK 广播包，正式分配 IP，客户端进入绑定状态。
+- 已占用：发送 DHCP Nak 拒绝报文，客户端返回初始化状态重新发送 Discover 报文。
+
+其他服务端收到 Request 报文后收回已发送的 Offer，释放对应的 IP 地址。
+
+**绑定状态（Bound State）**
+
+客户端接收到 DHCP ACK 报文后成功获取 IP 地址和网络配置，可以正常使用网络。
+
+DHCP ACK 报文中包含租期的超时时间 T1 和 T2，进入绑定状态后 IP 租期开始计时，租期到 T1 时候进入更新状态。
+
+**更新状态（Renewing State）**
+
+租期到达 T1 时刻后（通常为 1/2），客户端向分配 DHCP 服务端发送 DHCP Renew 续租单播包，请求延长租期。
+
+服务端返回应答报文后，客户端重新进入绑定状态。
+
+租期到达 T2 时刻后仍未收到服务端返回应答报文，进入重绑定状态。
+
+**重绑定状态（Rebinding State）**
+
+租期到 T2 时刻后，若未收到 Renew 响应，发送 DHCP Rebind 重绑定广播包发给所有 DHCP 服务端请求续租。
+
+服务端返回应答报文后，客户端重新进入绑定状态。
+
+租期到期后仍未收到服务端返回应答报文，客户端重新进入初始化状态发送 Discover 报文获取 IP 地址。
+
 ## DHCP 中继
+
+DHCP 中继全称是**DHCP Relay Agent（DHCP 中继代理）**，是部署在 “客户端所在网段” 与 “DHCP 服务器所在网段” 之间的网络设备（通常是路由器、三层交换机）。
+
+接收客户端发送的**DHCP 广播消息**，将其转换为**单播消息**转发给指定的 DHCP 服务器；再将服务器返回的单播响应消息，转换为广播消息发送给客户端，完成 IP 地址分配流程。
 
