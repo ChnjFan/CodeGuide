@@ -15,6 +15,7 @@
 - [HTTP 协议](./Protocol/http.md) - 超文本传输协议。
 - [DNS 协议](./Protocol/dns.md) - 域名系统协议，用于域名与 IP 地址的映射。
 - [DHCP 协议](./Protocol/dhcp.md) - 动态主机配置协议，用于自动分配 IP 地址和网络配置。
+- [TLS 协议](./Protocol/tls.md) - 传输层安全协议，为 TCP 链接提供加密、身份验证和数据完整性校验。
 
 ### 传输层
 
