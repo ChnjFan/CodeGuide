@@ -110,26 +110,88 @@ void Breakpoint::enable() {
     // 1. 读取断点地址处的8字节数据
     // ptrace读取的是long类型（64位系统上是8字节）
     long data = ptrace(PTRACE_PEEKDATA, m_pid, m_address, nullptr);
-    if (data == -1 && errno != 0) {
-        throw std::runtime_error("无法读取断点地址的内存: " + std::string(strerror(errno)));
-    }
-
     // 2. 保存原始的第一个字节（低8位）
     // 这个字节是原始指令的第一个字节，后面需要恢复
     m_saved_byte = static_cast<uint8_t>(data & 0xFF);
-
     // 3. 构造新的数据：保持高56位不变，将低8位替换为0xcc（int3指令）
     // 0xcc是x86/x86-64架构的int3指令，用于触发断点异常
     uint64_t int3_instruction = 0xcc;
     uint64_t data_with_int3 = ((data & ~0xFF) | int3_instruction);
-
     // 4. 将修改后的数据写回目标进程的内存
-    if (ptrace(PTRACE_POKEDATA, m_pid, m_address, data_with_int3) < 0) {
-        throw std::runtime_error("无法设置断点: " + std::string(strerror(errno)));
-    }
-
+    ptrace(PTRACE_POKEDATA, m_pid, m_address, data_with_int3);
     m_enabled = true;
-    std::cout << "断点已在地址 0x" << std::hex << m_address << std::dec << " 启用\n";
 }
 ```
 
+调用 `ptrace` 接口的 `PTRACE_PEEKDATA` 请求查看指定内存地址的数据，读取的内存是 long 类型。
+
+保存原始内存地址，后续继续执行还要将断点内存修改回来。
+
+将指定内存地址的数据修改为 int 3 指令（0xcc）后，通过 `PTRACE_POKEDATA` 请求来写入内存中。
+
+### 断点禁用
+
+与断点启动类似，将断点地址的 `int 3` 指令恢复为原来的数据，程序就可以正常执行原始指令。
+
+断点禁用发生在以下情况：
+
+- 用户删除断点
+- 单步执行时临时禁用断点执行原始指令
+
+```cpp
+void Breakpoint::disable() {
+    // 1. 读取断点地址处的当前数据
+    long data = ptrace(PTRACE_PEEKDATA, m_pid, m_address, nullptr);
+    // 2. 构造恢复后的数据：保持高56位不变，将低8位恢复为原始字节
+    uint64_t restored_data = ((data & ~0xFF) | m_saved_byte);
+    // 3. 将恢复后的数据写回目标进程的内存
+    ptrace(PTRACE_POKEDATA, m_pid, m_address, restored_data);
+    m_enabled = false;
+}
+```
+
+## 控制执行流程
+
+被调试进程执行通过调用 `ptrace` 接口的请求字段控制：
+
+- PTRACE_SINGLESTEP：单步执行
+- PTRACE_CONT：继续执行
+
+控制流程执行到断点时，需要处理断点指令，临时禁用断点后单步执行断点指令，然后恢复断点。
+
+```cpp
+void Debugger::stepOverBreakpoint() {
+    m_registers.readAll();
+    uint64_t pc = m_registers.getProgramCounter();
+
+    Breakpoint* bp = getBreakpointAtAddress(pc);
+    if (bp && bp->isEnabled()) {
+        // 1. 禁用断点
+        bp->disable();
+        // 2. 单步执行
+        ptrace(PTRACE_SINGLESTEP, m_pid, nullptr, nullptr);
+        waitForSignal();
+        // 3. 重新启用断点
+        bp->enable();
+    }
+}
+```
+
+## 寄存器读写
+
+寄存器的读写通过 `ptrace` 接口的 `PTRACE_GETREGS` 和 `PTRACE_SETREGS` 请求实现。
+
+```cpp
+void Registers::readAll() {
+    if (ptrace(PTRACE_GETREGS, m_pid, nullptr, &m_regs) < 0) {
+        throw std::runtime_error("无法读取寄存器: " + std::string(strerror(errno)));
+    }
+}
+void Registers::writeAll() {
+    if (ptrace(PTRACE_SETREGS, m_pid, nullptr, &m_regs) < 0) {
+        throw std::runtime_error("无法写入寄存器: " + std::string(strerror(errno)));
+    }
+}
+```
+
+寄存器结构体为 `user_regs_struct`，通过建立寄存器名跟结构体偏移值来获取或写入某个寄存器的值。
