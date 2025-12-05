@@ -99,11 +99,12 @@ class EventSystem {
 public:
     // 获取单例实例
     static EventSystem& getInstance() {
+        // C++ 局部静态变量的线程安全初始化，编译器会插入双重检查锁定机制
         static EventSystem instance;
         return instance;
     }
 
-    // 禁止拷贝和赋值
+    // 禁止拷贝和赋值，确保单例的唯一性
     EventSystem(const EventSystem&) = delete;
     EventSystem& operator=(const EventSystem&) = delete;
 
@@ -127,7 +128,7 @@ public:
 
         running_.store(false);
         cv_.notify_all();
-
+        // 等待线程完成后再结束，避免线程泄露导致程序退出异常
         if (workerThread_.joinable()) {
             workerThread_.join();
         }
@@ -140,6 +141,7 @@ public:
     size_t subscribe(typename EventListener<T>::CallbackType callback) {
         std::lock_guard<std::mutex> lock(mutex_);
 
+        // 移动语义：将回调函数移动到新创建的 EventListener 中，避免拷贝
         auto listener = std::make_shared<EventListener<T>>(std::move(callback));
         listener->listenerId = nextListenerId_++;
 
@@ -165,12 +167,16 @@ public:
         }
 
         auto& listenerList = it->second;
+        // 使用 remove_if 移除匹配的监听器，防止迭代器失效
+        // std::remove_if 不会直接删除元素（不改变容器大小），只是「标记」要删除的元素（移到尾部）并返回待删除的第一个元素
+        // 后续需配合 erase 才能真正删除。
         auto listenerIt = std::remove_if(listenerList.begin(), listenerList.end(),
             [listenerId](const std::shared_ptr<EventListenerBase>& listener) {
                 return listener->listenerId == listenerId;
             });
 
         if (listenerIt != listenerList.end()) {
+            // 移除[listenerIt, listenerList.end()) 范围内的元素
             listenerList.erase(listenerIt, listenerList.end());
             std::cout << "[EventSystem] 注销监听器 ID=" << listenerId << std::endl;
             return true;
@@ -184,15 +190,18 @@ public:
     // 请使用 publishBatch() 方法批量发布。
     template<typename T>
     void publish(std::shared_ptr<T> event) {
+        // std::is_base_of<Event, T>::value 检查 T 是否是 Event 的子类
         static_assert(std::is_base_of<Event, T>::value,
                       "T must inherit from Event");
 
         {
             std::lock_guard<std::mutex> lock(queueMutex_);
             eventQueue_.push(EventQueueItem(event));
+            // 原子执行：先返回 count 旧值（0），再将 count 加 1（最终 count=1）
             eventCount_.fetch_add(1);
         }
 
+        // 唤醒处理线程
         cv_.notify_one();
 
         std::cout << "[EventSystem] 发布事件: " << event->getName()
@@ -271,17 +280,21 @@ private:
             {
                 std::unique_lock<std::mutex> lock(queueMutex_);
 
-                // 等待事件或停止信号
+                // 等待事件或停止信号，解决虚假唤醒问题
+                // 1.加锁后检查当事件队列不空或停止时，立即返回处理
+                // 2.如果事件队列空且未停止，释放锁后等待 notify_one 被唤醒
+                // 3.被唤醒后再次检查事件队列是否为空，若为空则继续等待
                 cv_.wait(lock, [this] {
                     return !eventQueue_.empty() || !running_.load();
                 });
 
+                // 确保退出前处理完所有事件
                 if (!running_.load() && eventQueue_.empty()) {
                     break;
                 }
 
                 if (!eventQueue_.empty()) {
-                    event = eventQueue_.top().event;
+                    event = eventQueue_.top().event;//获取堆顶元素
                     eventQueue_.pop();
                     eventCount_.fetch_sub(1);
                 }
@@ -290,6 +303,8 @@ private:
             // 分发事件
             if (event) {
                 // 复制监听器列表（避免在持有锁时调用回调导致死锁）
+                // 如果在持有锁 mutex_ 时直接调用事件监听回调
+                // 事件监听回调可能还会执行发布事件、注册监听回调等操作尝试获取 mutex_ 导致死锁
                 std::vector<std::shared_ptr<EventListenerBase>> listenersCopy;
 
                 {
@@ -302,7 +317,7 @@ private:
                         std::cout << "[EventSystem] 处理事件: " << event->getName()
                                   << " 监听器数量=" << it->second.size() << std::endl;
 
-                        // 复制监听器列表
+                        // 复制监听器列表然后释放锁，避免在持有锁时调用回调导致死锁
                         listenersCopy = it->second;
                     }
                 }  // 锁在这里释放
@@ -327,12 +342,12 @@ private:
     // 事件优先级队列
     std::priority_queue<EventQueueItem> eventQueue_;
 
-    // 线程同步
+    // 线程同步，允许监听器和事件发布并发
     std::mutex mutex_;           // 保护监听器列表
     std::mutex queueMutex_;      // 保护事件队列
     std::condition_variable cv_; // 条件变量
     std::thread workerThread_;   // 工作线程
-    std::atomic<bool> running_;  // 运行状态
+    std::atomic<bool> running_;  // 运行状态，原子读写
 
     // 监听器ID生成器
     size_t nextListenerId_;
