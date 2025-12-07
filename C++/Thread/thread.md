@@ -189,3 +189,80 @@ int main() {
 }
 ```
 
+`joinable()` 判断线程是否处于可等待或可分离的状态。
+
+### 线程移动语义
+
+`std::thread` 的**拷贝构造函数和拷贝赋值运算符被删除**（禁止拷贝），但支持**移动构造和移动赋值**（线程所有权转移）。
+
+```cpp
+std::thread t1([](){
+    // std::this_thread::get_id() 获取当前执行线程的 ID
+    std::cout << "Moved thread ID: " << std::this_thread::get_id() << std::endl;
+});
+thread t2 = std::move(t1);
+std::cout << "t1 joinable after move: " boolalpha << t1.joinable() << std::endl;
+// std::thread::get_id() 获取指定线程对象的 ID；
+std::cout << "t2 ID = " << t2.get_id() << std::endl; 
+t2.join();
+```
+
+线程移动只是将线程的控制权从一个对象转移到另一个对象，不会影响线程的执行流，原对象不再关联任何线程。
+
+1. **为什么不允许 `std::thread` 拷贝**
+
+`std::thread` 封装的是操作系统的内核线程，每个 `std::thread` 对象对应一个唯一的内核线程（TID）。若允许拷贝，会导致以下问题：
+
+- **重复管理线程资源**：两个 `std::thread` 对象指向同一个内核线程，若都调用 `join()`/`detach()`，会触发未定义行为（如重复释放线程资源、程序崩溃）；
+- **线程所有权模糊**：无法确定哪个对象负责回收线程资源，易导致线程泄漏或死锁；
+- **违背操作系统设计**：内核线程的 TID 是唯一的，不允许 “一个线程被多个管理者控制”。
+
+2. **移动操作后的状态**
+
+- `std::thread` 移动操作后源对象不再关联任何内核线程，`get_id()` 返回 `std::thread::id()`（空 ID），`joinable()` 返回 `false`。源对象析构时不再调用 `std::terminate()`。
+- 最终的管理对象必须调用 `join()`/`detach()` 管理资源，调用前使用 `joinable()` 检查。
+
+### 线程休眠与让步
+
+线程休眠让当前线程暂停执行，释放 CPU 使用权不会被调度，但不释放已持有的锁。
+
+- `this_thread::sleep_for(duration)` 当前线程休眠指定时长。
+- `this_thread::sleep_until(time_point)` 当前线程休眠到指定时间。
+
+线程让步 `this_thread::yield()` 暂时释放 CPU 使用权让渡给同优先级或高优先级的线程，线程让步后仍处于 RUNNABLE 状态没有等待时长，会立即参与下一次 CPU 调度。
+
+ ## 常见问题
+
+1. 线程对象析构前未调用 `join()`/`detach()`
+
+`std::thread` 析构函数检测到线程仍可 join（未调用 `join()`/`detach()`），会调用 `std::terminate()` 强制终止程序，终止过程不保证析构所有对象或释放资源。
+
+2. 线程访问悬空引用或指针
+
+使用 `detach()` 分离线程后访问了主线程已销毁的局部变量，会造成程序崩溃或出现未定义行为。
+
+应尽量避免使用 `detach()`，优先使用 `join()`。线程仅访问全局变量或动态分配的资源，Lambda 按值捕获变量避免引用。
+
+3. 传递参数时的拷贝/引用问题
+
+- `std::thread` 传递参数时，默认会将参数拷贝到线程栈中，即使函数接收引用，也无法修改外部变量。可以使用 `std::ref()` 将普通变量包装为引用包装器，解决按值传递场景无法传递引用的问题。
+
+> `std::ref(var)` 不复制 `var`，而是返回一个轻量级的 `std::reference_wrapper<T>` 对象（可隐式转换为 `T&`）；
+
+- 线程中访问临时对象的引用，临时对象可能提前销毁，导致悬空引用。
+
+```cpp
+// 错误：临时 string 被销毁，线程访问悬空引用
+std::thread t(printMsg, std::string("temp"), 10);
+
+// 正确：传递值（或提前创建对象）
+std::string msg = "temp";
+std::thread t(printMsg, msg, 10);
+```
+
+4. 线程数量过多会导致性能下降
+
+创建的线程数远大于 CPU 核心数，导致频繁的线程上下文切换，CPU 利用率降低，程序性能下降。
+
+- 按 CPU 核心数设置线程数（参考 `thread::hardware_concurrency()`）；
+- 使用线程池复用线程，避免频繁创建 / 销毁。

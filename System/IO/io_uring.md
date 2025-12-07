@@ -32,8 +32,47 @@ io_uring 通过共享内存的**环形队列**和**批量处理**来解决传统
 - **环形队列**：用户态和内核态共享两个环形队列——提交队列（SQ）和完成队列（CQ）。用户向 SQ 写入请求，内核从 SQ 读取并处理，完成后的结果写入 CQ，整个流程避免系统调用。
 - **批量处理**：多个 IO 请求可以一次性提交，多个事件可以一次性获取，减少了用户态和内核态的切换次数。
 
-### io_uring 工作流程
+### 工作流程
 
+`io_uring` 基于两个核心环形队列实现，环形队列基于共享内存（mmap 内核空间）实现，用户态到内核态无需拷贝数据，直接访问。
 
+环形队列通过索引计数器同步，无锁设计。
+
+- 提交队列 SQ：用户态向内核提交 IO 请求的环形队列，内核读取。
+- 完成队列 CQ：内核向用户态返回 IO 结果的环形队列，用户读取。
+
+工作流程如下：
 
 ![](../Pics/io_uring_work.png)
+
+1. 用户态通过 `io_uring_get_sqe()` 获取空闲 SQE，填充参数后，通过 `io_uring_submit()` 将 SQE 提交到 SQ；
+2. 内核触发读取 SQ：
+   - 主动触发：调用 `io_uring_enter()` 系统调用，通知内核处理 SQ；
+   - 被动触发：启用 SQ_POLL 模式（内核线程轮询 SQ），无需主动调用；
+3. 用户态从 CQ 获取结果：
+   - 轮询：`io_uring_peek_cqe()` 非阻塞检查 CQ；
+   - 阻塞：`io_uring_wait_cqe()` 阻塞等待 CQ 有结果；
+   - 事件驱动：结合 `epoll` 监听 CQ 就绪事件（内核 5.8+ 支持）。
+
+### 核心特性
+
+#### SQPOLL 模式
+
+内核通过创建 SQ_POLL 线程，持续轮询 SQ 是否有新请求。用户态提交 SQE 后，内核线程立即处理，无需用户态调用 `io_uring_enter()` 通知内核。
+
+消除提交请求的系统调用开销，优化性能，在创建 `io_uring` 时设置`IORING_SETUP_SQPOLL` 标志。
+
+```cpp
+#include <liburing.h>
+
+struct io_uring ring;
+struct io_uring_params params;
+params.flags = IORING_SETUP_SQPOLL;
+int ret = io_uring_queue_init_params(1024, &ring, &params);
+```
+
+- IORING_SETUP_IOPOLL：忙轮询设备就绪状态代替中断，优化低延迟场景 IO 性能。
+- IORING_SETUP_SINGLE_ISSUER：限制 IO 提交者只能为单一线程或进程，降低内核同步开销，优化单线程提交场景。
+
+
+
