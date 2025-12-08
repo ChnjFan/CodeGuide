@@ -9,6 +9,7 @@
 ### 基础知识
 
 - [数组](./Basic/array.md) - 相同类型元素的有序集合。
+- [初始化列表](./Basic/initializer_list.md) - `std::initializer_list` 提供对初始化列表 `{}` 的类型化访问。
 
 ### 面向对象编程
 
