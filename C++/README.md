@@ -11,6 +11,7 @@
 - [数组](./Basic/array.md) - 相同类型元素的有序集合。
 - [初始化列表](./Basic/initializer_list.md) - `std::initializer_list` 提供对初始化列表 `{}` 的类型化访问。
 - [右值引用与移动语义](./Basic/rvalue_move.md) - 右值引用和移动语义通过减少拷贝操作优化性能。
+- [内存池](./Basic/memory_pool.md) - 多层级内存块管理，智能碎片整理，线程安全机制和高性能对象池。
 
 ### 面向对象编程
 
@@ -25,6 +26,32 @@
 STL（Standard Template Library）标准模板库是 C++ 标准库的核心部分，提供一套通用的数据结构和算法。
 
 - [STL 基础](./STL/stl_basic.md) - STL 泛型编程的设计理念让数据与算法分离，通过统一的接口连接。
+
+#### 容器（Container）
+容器是 STL 中最常用的部分，分为序列式容器和关联式容器两类，以及基于现有容器封装的容器适配器。
+
+- **序列式容器**：元素插入顺序存储，通过下标访问。
+
+  - [vector](./STL/vector.md) - 动态数组，底层是连续内存，支持快速随机访问，尾部插入删除效率高。
+
+  - [list](./STL/list.md) - 双向链表，不支持随机访问，任意位置插入删除效率高。
+
+  - [deque](./STL/deque.md) - 双端队列，底层是分段连续内存，支持收尾快速插入删除，支持随机访问。
+
+- **关联式容器**：元素按关键字排序存储，底层为红黑树或哈希表。
+
+  - [set](./STL/set.md) - 存储唯一的元素，自动按升序排序，不支持下标访问。
+  - [map](./STL/map.md) - 存储键值对（key-value），key 唯一且升序排序，可以通过 key 访问 value。
+  - [unordered_set](./STL/unordered_set.md) / [unordered_map](./STL/unordered_map.md) - 基于哈希表实现，元素无序，查找效率更高。
+
+- **容器适配器**：基于现有容器封装，改变接口
+
+  - [stack](./STL/stack.md) - 栈，先进后出，基于 `deque` 实现。
+  - [queue](./STL/queue.md) - 队列，先进先出，基于 `deque` 实现。
+
+#### 迭代器（Iterator）
+
+迭代器为 STL 提供了统一的方式遍历不同容器的元素，行为类似指针。
 
 ### 多线程编程
 
