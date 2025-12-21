@@ -266,7 +266,206 @@ void MemoryBlock::split_block(MemoryBlockHeader* header, size_t needed_size) {
 
 #### 块合并
 
+内存释放时将相邻的空闲块进行合并。
 
+```cpp
+void MemoryBlock::merge_free_blocks(MemoryBlockHeader* header) {
+    // 尝试与下一个块合并
+    if (header->next && header->next->is_free) {
+        header->block_size += sizeof(MemoryBlockHeader) + header->next->block_size;
+        header->next = header->next->next;
+        if (header->next) {
+            header->next->prev = header;
+        }
+    }
+
+    // 尝试与前一个块合并
+    if (header->prev && header->prev->is_free) {
+        header->prev->block_size += sizeof(MemoryBlockHeader) + header->block_size;
+        header->prev->next = header->next;
+        if (header->next) {
+            header->next->prev = header->prev;
+        }
+    }
+}
+```
+
+块合并过程查看链表中前后块是否空闲，如果空闲则向前合并。
+
+每次释放内存均进行合并，所以链表中不会存在连续的两个空闲块，只需要向前或向后一个节点查看是否空闲。
+
+合并时先向后合并，再向前合并，可以处理三个连续空闲块的情况：[空闲\][刚释放\][空闲\] ==> [大空闲块\]。
+
+```bash
+合并前：
++--------+------+--------+------+--------+------+
+| Header | Used | Header | Free | Header | Free |
++--------+------+--------+------+--------+------+
+                    ^
+                 释放这个块
+合并后：
++--------+------+--------+-----------------------+
+| Header | Used | Header |     Free (Mearge)     |
++--------+------+--------+-----------------------+
+```
+
+#### 内存释放
+
+释放用户指针回收内存。
+
+```cpp
+bool MemoryBlock::deallocate(void* ptr) {
+    if (!ptr) return false;
+
+    std::lock_guard<std::mutex> lock(block_mutex_);
+
+    // 找到块头
+    MemoryBlockHeader* header = reinterpret_cast<MemoryBlockHeader*>(
+        reinterpret_cast<char*>(ptr) - sizeof(MemoryBlockHeader)
+    );
+
+    // 验证魔数
+    if (header->magic != MAGIC_NUMBER) {
+        // 不打印错误，可能是指针不属于此块
+        return false;
+    }
+
+    if (header->is_free) {
+        std::cerr << "[WARNING] 尝试释放已经释放的内存块" << std::endl;
+        return false;
+    }
+
+    // 标记为空闲
+    header->is_free = 1;
+    used_size_ -= header->block_size;
+
+    // 尝试合并相邻的空闲块
+    merge_free_blocks(header);
+
+    // 更新缓存的最大空闲块大小
+    update_cached_max_free_size();
+
+    return true;
+}
+```
+
+释放内存时反向偏移获取头地址，通过检查魔术字验证释放内存是否是从内存池申请，或者内存是否被破坏。
+
+检查内存是否重复释放，内存可能已经被其他人使用，重复释放异常。
+
+正常释放内存标记空闲后进行块合并，更新缓存最大空闲块大小。
+
+### 对象池
+
+对象池提供了一种高效的对象复用机制，避免频繁的构造和析构。
+
+```cpp
+/**
+ * @brief 通用对象池类
+ * 支持预创建固定数量的对象，提供快速的获取和归还机制
+ */
+template<typename T>
+class ObjectPool {
+public:
+    // 成员函数
+private:
+    std::queue<T*> free_objects_;              // 空闲对象队列
+    std::unordered_set<T*> used_objects_;      // 使用中的对象集合（O(1) 查找/删除）
+    size_t initial_capacity_;                  // 初始容量
+    size_t max_capacity_;                      // 最大容量
+    std::atomic<size_t> current_size_;         // 当前创建的对象总数
+    std::atomic<size_t> peak_used_;            // 峰值使用数
+    mutable std::mutex pool_mutex_;            // 保护池结构的互斥锁
+};
+```
+
+使用模板 `template<typename T>` 可以管理任意对象类型，对象的初始化在用户获取对象时完成。
+
+#### 构造函数
+
+```cpp
+/**
+ * @brief 构造函数
+ * @param initial_capacity 初始对象数量
+ * @param max_capacity 最大对象数量
+ */
+ObjectPool::ObjectPool(size_t initial_capacity = 100, size_t max_capacity = 1000)
+    : initial_capacity_(initial_capacity),
+      max_capacity_(max_capacity),
+      current_size_(0),
+      peak_used_(0) {
+
+    // 预创建初始对象
+    for (size_t i = 0; i < initial_capacity_; ++i) {
+        free_objects_.push(new T());
+    }
+    current_size_ = initial_capacity_;
+}
+```
+
+构造时预创建对象，减少运行时内存申请释放开销。
+
+#### 获取对象
+
+```cpp
+/**
+ * @brief 获取一个对象
+ * @return 指向对象的指针
+ */
+T* ObjectPool::acquire() {
+    std::lock_guard<std::mutex> lock(pool_mutex_);
+
+    T* obj = nullptr;
+
+    if (!free_objects_.empty()) {
+        obj = free_objects_.front();
+        free_objects_.pop();
+    } else if (current_size_ < max_capacity_) {
+        // 动态扩展
+        obj = new T();
+        current_size_++;
+    } else {
+        // 池已满，返回nullptr
+        return nullptr;
+    }
+
+    used_objects_.insert(obj);
+
+    // 更新峰值使用数
+    if (used_objects_.size() > peak_used_) {
+        peak_used_ = used_objects_.size();
+    }
+
+    return obj;
+}
+```
+
+当空闲队列为空且未达到最大容量时，动态创建新对象，最大容量限制防止内存无限增长。
+
+#### 释放对象
+
+```cpp
+/**
+ * @brief 归还一个对象
+ * @param obj 待归还的对象指针
+ * @return 是否成功归还
+ */
+bool ObjectPool::release(T* obj) {
+    if (!obj) return false;
+
+    std::lock_guard<std::mutex> lock(pool_mutex_);
+
+    // 从使用集合中移除（O(1) 平均复杂度）
+    auto it = used_objects_.find(obj);
+    if (it != used_objects_.end()) {
+        used_objects_.erase(it);
+        free_objects_.push(obj);
+        return true;
+    }
+
+    return false;
+}
+```
 
 ### 多层级内存块管理
 
