@@ -14,7 +14,6 @@
 
 - :fire: ​[HTTP 协议](./Protocol/http.md) - 超文本传输协议。
 - :fire: ​[DNS 协议](./Protocol/dns.md) - 域名系统协议，用于域名与 IP 地址的映射。
-- [DHCP 协议](./Protocol/dhcp.md) - 动态主机配置协议，用于自动分配 IP 地址和网络配置。
 - :fire: ​[TLS 协议](./Protocol/tls.md) - 传输层安全协议，为 TCP 链接提供加密、身份验证和数据完整性校验。
 
 ### 传输层
@@ -30,10 +29,13 @@
 
 - :fire: ​[IP 协议](./Protocol/ip.md) -  网络层引入 IP 地址，通过子网掩码确定计算机所在子网，确定子网后根据 MAC 地址将数据包传送到子网的目标网卡。
 - [ARP 协议](./Protocol/arp.md) - 负责 IP 地址与 MAC 地址之间的映射。
-- [ND 协议](./Protocol/nd.md) - IPv6 的邻居发现协议，用来替代 ARP 和 ICMP 路由发现/重定向功能。
+- [NDP 协议](./Protocol/ndp.md) - IPv6 的邻居发现协议，用来替代 ARP 和 ICMP 路由发现/重定向功能。
 - [ICMP 协议](./Protocol/icmp.md) - 互联网控制报文协议，传递 IP 协议层配置和 IP 数据包的控制信息和错误报告。
+- [NAT](./Protocol/nat.md) - 网络地址转换，将内网的私有 IP 转换成公网 IP。
+- [DNS](./Protocol/dns.md) - 网络地址转换，将内网的私有 IP 转换成公网 IP。
+- [DHCP 协议](./Protocol/dhcp.md) - 动态主机配置协议，用于自动分配 IP 地址和网络配置。
 
-#### 路由协议
+#### 单播协议
 
 路由表决定了数据报的转发路径，通过最长前缀匹配查找精确路由。
 
@@ -58,9 +60,6 @@
 
 路由策略是一套决定数据包如何从源主机通过网络到达目标主机的规则和机制，核心是在复杂网络拓扑中选择最优路径，实现流量控制、负载均衡和网络安全等。
 
-#### 网络层应用
-
-- [NAT](./Protocol/nat.md) - 网络地址转换，将内网的私有 IP 转换成公网 IP。
 - [IPsec](./Protocol/ip_security.md) - 在 IP 层提供安全服务的协议套件，用于构建 VPN。
 
 ### 数据链路层
