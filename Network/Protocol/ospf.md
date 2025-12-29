@@ -109,7 +109,7 @@ OSPF共有8种状态机：
 - Loading：交换 DD 报文完成。
 - Full：LSR 重传列表为空。
 
-#### OSPF 路由聚合
+### OSPF 路由聚合
 
 ABR 可以将相同前缀的路由信息聚合在一起，只发布一条路由到其他区域。
 
@@ -118,7 +118,7 @@ ABR 可以将相同前缀的路由信息聚合在一起，只发布一条路由�
 - ABR 聚合：ABR 将连续网段聚合成一个网段，生成 Type3 LSA 向其他区域发布。
 - ASBR 聚合：本地设备是 ASBR 将引入的聚合地址范围内的 Type5 LSA 进行聚合。配置 NSSA 区域时，对引入的聚合地址范围内的 Type7 LSA 进行聚合。
 
-#### OSPF 缺省路由
+### OSPF 缺省路由
 
 OSPF 路由器只有对区域外的出口才能发布缺省路由 LSA。
 
@@ -128,3 +128,75 @@ OSPF 路由器只有对区域外的出口才能发布缺省路由 LSA。
 OSPF 路由器已经发布了缺省路由 LSA，不再学习其它路由器发布的相同类型缺省路由。
 
 外部缺省路由（指导报文域外转发）的发布如果要依赖于其它路由，那么被依赖的路由不能是本 OSPF 路由域内的路由。域内路由的下一跳都指向域内，不能满足报文域外转发要求。
+
+## 基本原理
+
+OSPF 协议路由的计算过程：
+
+1. 建立邻接关系
+   - 发送 Hello 报文建立邻居关系。
+   - 主从关系协商和 DD 报文交换。
+   - 更新 LSA 完成 LSDB 同步。
+2. 路由计算：采用 SPF 算法计算路由，达到路由快速收敛。
+
+### 建立邻接关系
+
+状态机变化中，建立邻接关系的条件：
+
+- 与邻居的双向通信初次建立时。
+- 网段中的 DR 和 BDR 发生变化时。
+
+#### 广播网络建立邻接关系
+
+![](../Pics/ospf_broadcast.png)
+
+1. **建立邻居关系**
+
+（1）Router A 接口使能 OSPF 协议后，从该接口使用组播地址 224.0.0.5 发送 Hello 报文。Router A 认为自己是 DR（1.1.1.1），不确定邻居是什么（Neighbors Seen = 0）。
+
+（2）Router B 收到 Router A 的 Hello 报文，回应一个 Hello 报文给 Router A，在 Neighbors Seen 字段填入 Router A 的 Router ID（1.1.1.1），宣告 DR 是 Router B（DR = 2.2.2.2）。此时 Router B的邻居状态切换为 Init。
+
+（3）Router A 收到 Router B 回应的 Hello 报文后，邻居状态机置为 2-way 状态。
+
+如果两个路由器是非 DR，将停留在这一步。
+
+2. **主从关系协商、DD 报文交换**
+
+（1）Router A 发送一个 DD 报文宣称自己是 Master（MS = 1，Seq = X），报文不包含 LSA 的摘要，只是协商主从关系。
+
+（2）Router B 收到 DD 报文，将邻居状态机改为 Exstart，回应一个 DD 报文（不包含 LSA 摘要，Seq = Y），自己的 Router ID 较大，在报文中认为自己是 Master，重新规定序列号。
+
+（3）Router A 收到报文后同意 Router B 作为 Master，邻居状态机改为 Exchange，使用 Router B 发送回来的序列号发送新的 DD 报文，正式传送 LSA 的摘要（Seq = Y，MS = 0，Router A 是 Slave）。
+
+（4）Router B 收到报文后将邻居状态机改为 Exchange，发送新的 DD 报文描述自己的 LSA 摘要（Seq = Y + 1）。
+
+持续上述过程，当 Router B 发送最后一个 DD 报文后在报文中设置 M = 0。
+
+3. **LSDB 同步（LSR、LSU、LSAck）**
+
+（1）Router A 收到最后一个 DD 报文后，确定 Router B 数据库里自己没有的 LSA，邻居状态机改为 Loading 状态。Router B 收到最后一个 DD报文发现数据库都有 Router A 的 LSA，直接将领居状态机改为 Full 状态。
+
+（2）Router A 发送 LSR 向 Router B 请求更新 LSA，Router B 回复 LSU，Router A 收到后发送 LSAck 确认。
+
+一直持续到 LSA 完全同步，Router A 将领居状态机改为 Full 状态。
+
+路由器交换完 DD 报文并更新 LSA 后邻接关系建立完成。
+
+#### NBMA 网络建立邻接关系
+
+NBMA 网络和广播网络建立区别是在邻居关系的建立。
+
+![](../Pics/ospf_nbma.png)
+
+Router B 向 Router A 发送 Hello 报文后，将邻居状态机改为 Attempt，Router B认为自己是 DR（DR = 2.2.2.2，Neighbors Seen = 0）。
+
+Router A 收到 Hello 报文后将邻居状态机置为 Init，回复 Hello 报文。Router A 同意 Router B 是 DR（DR = 2.2.2.2， Neighbors Seen = 2.2.2.2）。
+
+#### 点到点网络建立邻接关系
+
+点到点网络不需要选举 DR 和 BDR，DD 报文通过组播发送。
+
+### 路由计算
+
+OSPF 采用 SPF（Shortest Path First）算法计算路由，快速收敛路由。
+
