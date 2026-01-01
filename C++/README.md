@@ -59,6 +59,23 @@ STL（Standard Template Library）标准模板库是 C++ 标准库的核心部�
 
 迭代器为 STL 提供了统一的方式遍历不同容器的元素，行为类似指针。
 
+#### 算法（Algorithms）
+
+STL 算法是对容器的数据执行通用操作，定义在 `<algorithm>` 头文件。
+
+- **遍历/修改**
+  - [for_each](./STL/for_each.md) - STL 通用遍历算法，对容器或迭代器范围的每个元素执行指定操作。
+  - [transform](./STL/transform.md) - 转换元素。
+- 查找
+  - [find](./STL/find.md) - STL 通用查找算法。
+  - [binary_search](./STL/binary_search.md) - 二分查找。
+- 排序
+  - [sort](./STL/sort.md) - 排序算法。
+  - [shuffle](./STL/shuffle.md) - 排序算法。
+- 数值计算
+  - [accumulate](./STL/accumulate.md) - 数值计算。
+  - [count](./STL/count.md) - 计数。
+
 ### 多线程编程
 
 线程是进程内的执行单元，一个进程可以包含多个线程，所有线程共享进程的内存空间（代码段、数据段和堆），拥有独立的栈空间和寄存器上下文。
