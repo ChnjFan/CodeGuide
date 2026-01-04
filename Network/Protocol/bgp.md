@@ -52,3 +52,55 @@ BGP 对等体通过报文交互，交互过程通过状态机控制。
 
 ### BGP 状态机
 
+BGP对等体的交互过程中存在6种状态机：空闲（Idle）、连接（Connect）、活跃（Active）、Open报文已发送（OpenSent）、Open报文已确认（OpenConfirm）和连接已建立（Established）。在BGP对等体建立的过程中，通常可见的3个状态是：Idle、Active和Established。
+
+![](../Pics/bgp_state.png)
+
+- Idle 状态：BGP 初始态，拒绝邻居发送的连接请求，收到 Start 事件开始跟对等体 Peer 进行 TCP 连接，转到 Connect 状态。
+- Connect 状态：重启连接重传定时器（Connect Retry），等待完成 TCP 连接。
+  - TCP 连接成功，BGP 向对等体发送 Open 报文，转至 OpenSent 状态。
+  - TCP 连接失败，转至 Active 状态，试图重新建立 TCP 连接。
+  - 连接重传定时器超时，停留在 Connect 状态继续尝试建立 TCP 连接。
+- Active 状态：试图建立 TCP 连接。
+- OpenSent 状态：等待对等体 Peer 的 Open 报文，对 AS 号、版本号、认证码等校验。
+  - 报文正确，发送 Keepalive 报文转至 OpenConfirm 状态。
+  - 报文错误，发送 Notification 报文转至 Idle 状态。
+- OpenConfirm 状态：等待 Keepalive 或 Notification 报文。
+  - 收到 Keepalive 报文转至 Established 状态。
+  - 收到 Notification 报文转至 Idle 状态。
+- Established 状态：可以和 Peer 交换 Update、Keepalive、Route-refresh 和 Notification 报文。
+  - 收到正确的 Update 或 Keepalive 报文认为正常运行。
+  - 收到错误的 Update 或 Keepalive 报文，发送 Notification 报文转至 Idle 状态。
+  - 收到 Notification 报文转至 Idle 状态。
+
+### 对等体交互原则
+
+BGP 设备将最优路由加入 BGP 路由表，与对等体建立邻居关系后的交互原则：
+
+- 从 IBGP Peer 获取的路由只发布给 EBGP 对等体。
+- 从 EBGP Peer 获取的路由发布给所有 EBGP 和 IGBP Peer。
+- 多条有效路由只发布最优路由给 Peer。
+- 路由更新只发布更新的 BGP 路由。
+- 所有 Peer 发送的路由都会接收。
+
+## BGP 与 IGP 交互
+
+BGP 与 IGP 使用不同路由表，通过路由表的相互引入实现不同 AS 间的相互通讯。
+
+### BGP 引入 IGP 路由
+
+BGP 协议本身不发现路由，需要将其他路由引入 BGP 路由表，实现 AS 间路由互通。
+
+AS 需要将路由发布给其他 AS，AS 边缘路由器在 BGP 路由表中引入 IGP 路由，使用路由策略进行路由过滤和路由属性设置。
+
+- Import 方式：按协议类型引入路由，可以引入静态路由和直连路由。
+- Network 方式：逐条将 IP 路由表存在的路由引入 BGP 路由表。
+
+### IGP 引入 BGP 路由
+
+AS 需要引入其他 AS 的路由，AS 边缘路由器在 IGP 路由表中引入 BGP 路由。
+
+使用路由策略进行路由过滤和路由属性设置。
+
+## 路由选择策略
+
