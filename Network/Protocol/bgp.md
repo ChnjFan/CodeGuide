@@ -104,3 +104,70 @@ AS 需要引入其他 AS 的路由，AS 边缘路由器在 IGP 路由表中引�
 
 ## 路由选择策略
 
+BGP 路由表到达同一目的地可能存在多条路由，BGP 会通过路由优选规则比较 BGP 属性，选择最佳路由发送给对等体。
+
+### BGP 属性
+
+路由属性是对路由的特定描述。
+
+#### 公认必须遵循属性
+
+公认必须遵循的属性是所有 BGP 设备都要识别的属性类型，必须存在 Update 报文中，缺少属性路由信息错误：
+
+- Origin 属性：定义路径信息来源，标记路由怎么成为 BGP 路由。
+  - IGP：最高优先级，通过命令注入 BGP 路由表。
+  - EGP：通过 EGP 得到的路由信息。
+  - Incomplete：优先级最低，其他方式学习的路由信息。
+- AS_Path 属性：矢量顺序记录路由从本地到目的地经过的 AS 编号。设备发现 AS_Path 中有本 AS 号则不接受，避免路由环路。
+  - Speaker 传播自身引入路由：
+    - Speaker 通告 EBGP Peer，Update 报文中创建携带本地 AS 号的 AS_Path 列表。
+    - Speaker 通告 IBGP Peer，Update 报文中创建空的 AS_Path 列表。
+  - Speaker 传播从 Update 报文学习的路由：
+    - Speaker 通告 EBGP Peer，Update 报文中本地 AS 号添加到 AS_Path 最前面。
+    - Speaker 通告 IBGP Peer，不改变路由的 AS_Path 属性。
+- Next_Hop 属性：记录路由下一条信息（不一定是邻居设备 IP 地址）。
+  - Speaker 向 EBGP Peer 通告路由时，设置为本地与对端建立 BGP 邻居关系的接口地址。
+  - Speaker 向 IBGP Peer 通告本地始发路由时，设置为本地与对端建立 BGP 邻居关系的接口地址。
+  - Speaker 向 IBGP Peer 通告学习到的路由时，不改变路由信息下一跳属性。
+
+#### 公认任意属性
+
+所有 BGP 设备都可以识别此类属性，但 Update 报文中可以缺少该属性，路由信息不会错误。
+
+- Local_Pref 属性：表明路由器的 BGP 优先级，判断流量离开 AS 的最佳路由。
+  - BGP 设备通过不同 IBGP Peer 得到目的地址相同但下一跳不同的路由，优先选择 Local_Pref 高的路由。
+  - 仅在 IBGP Peer 之间有效，不通告给其他 AS。
+
+#### 可选过渡属性
+
+可以不识别此类属性，但会接收并通告给其他对等体。
+
+- 团体属性：标识相同特征的 BGP 路由，使路由策略应用更加灵活。
+
+#### 可选非过渡属性
+
+可以不识别此类属性，忽略该属性且不会通告给其他对等体。
+
+- MED 属性：判断流量进入 AS 的最佳路由。
+  - 相同条件下选择 MED 值较小的作为最佳路由。
+  - 在相邻两个 AS 之间传递，不会通告给其他 AS。
+- Originator_ID 属性和 Cluster_List 属性：解决路由反射器场景的环路问题。
+
+### BGP 路由选择策略
+
+同一目的地存在多条路由，BGP 按照下列属性选择路由：
+
+1. 优选本地优先级（Local_Pref）最高的路由。
+2. 依次优选手动聚合路由、自动聚合路由和命令引入路由，从 Peer 学习的路由。
+3. 优选 AS 路径（AS_Path）最短的路由。
+4. 依次优选 Origin 类型为 IGP、EGP、Incomplete 的路由。
+5. 来自同一 AS 的路由，优选 MED 值最低的路由。
+6. 依次优选 EBGP 路由、IBGP 路由、LocalCross 路由、RemoteCross 路由。
+7. 优选到 BGP 下一跳 IGP 度量值（metric）最小的路由。
+8. 优选 Cluster_List 最短的路由。
+9. 优选 Router ID 最小的设备发布的路由。
+10. 优选从具有最小 IP Address 的对等体学来的路由。
+
+### 负载分担
+
+到达
