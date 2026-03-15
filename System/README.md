@@ -24,3 +24,8 @@
 
 - [高性能异步 IO 框架：io_uring](./IO/io_uring.md)：Linux 5.1 引入的高性能异步 IO 接口，通过共享内存的环形缓冲区实现用户态和内核态之间的零拷贝通信，避免传统 AIO 的系统调用开销。
 
+## Redis
+
+Redis 核心知识：
+
+- [Redis 数据结构](./Redis/datastruct.md)：Redis 对外暴露的核心数据类型包括字符串、哈希、列表、集合和有序集合。
