@@ -14,6 +14,7 @@
 - [初始化列表](./Basic/initializer_list.md) - `std::initializer_list` 提供对初始化列表 `{}` 的类型化访问。
 - [右值引用与移动语义](./Basic/rvalue_move.md) - 右值引用和移动语义通过减少拷贝操作优化性能。
 - [Lambda 表达式](./Basic/lambda.md) - 匿名函数对象，提升代码简洁性和灵活性。
+- [注解标签](./Basic/attributes.md) - **属性标签**在其他语言又叫注解，给编译器、静态检查工具看的注解、标记。
 
 #### 内存管理
 

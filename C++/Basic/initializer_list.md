@@ -9,7 +9,7 @@
 `std::initializer_list` 本质是一个轻量级的只读连续的元素序列视图，不存储数据，仅引用外部数据。
 
 ```cpp
-// 头文件 <initializer_list>
+#include <initializer_list>
 template<class T>
 class initializer_list {
 public:
