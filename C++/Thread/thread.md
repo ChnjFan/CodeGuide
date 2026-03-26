@@ -8,6 +8,20 @@
 
 ## 创建线程
 
+`Linux/pthread` 线程创建方式
+
+```c
+#include <pthread.h>
+int pthread_create(pthread_t *thread, 
+				   const pthread_attr_t *attr,
+                   void *(*start_routine) (void *), 
+                   void *arg);
+```
+
+- 线程创建成功，通过 `thread` 参数获取创建成功的线程 PID
+- 参数 `attr` 设置线程的属性，`NULL` 表示使用默认属性。
+- 参数 `start_routine` 指定线程函数。
+
 `std::thread` 是 C++11 标准库 `<thread>` 头文件中提供的核心类，用于创建和管理操作系统级别的线程。
 
 它封装了底层平台（`Linux/pthread`、`Windows/CreateThread`）的线程接口，提供跨平台的线程操作能力。
@@ -129,6 +143,51 @@ int main() {
 }
 ```
 
+### 获取线程 ID
+
+Linux 系统中有三种方式获取线程的 ID：
+
+- 调用 `pthread_create` 函数第一个参数在函数调用成功后可以得到线程 ID。
+- 线程中调用 `pthread_self()` 函数获取。
+- 通过系统调用 `syscall(SYS_gettid)` 获取线程 ID，这里获取的线程 ID 是系统范围全局唯一的，轻量级进程 PID。
+
+C++11 线程库提供 `std::this_thread` 类中的 `get_id()` 方法获取当前线程的 ID，也可以通过线程对象获取对应线程的 ID。
+
+```cpp
+#include <thread>
+#include <iostream>
+#include <sstream>
+
+void worker_thread_func() {
+    while (true) {}
+}
+
+int main() {
+    std::thread t(worker_thread_func);
+    //获取线程t的ID
+    std::thread::id worker_thread_id = t.get_id();
+    std::cout << "worker thread id: " << worker_thread_id << std::endl;
+
+    //获取主线程的线程ID
+    std::thread::id main_thread_id = std::this_thread::get_id();
+    //先将std::thread::id转换成std::ostringstream对象
+    std::ostringstream oss;
+    oss << main_thread_id;
+    //再将std::ostringstream对象转换成std::string
+    std::string str = oss.str();
+    std::cout << "main thread id: " << str << std::endl;
+    //最后将std::string转换成整型值
+    unsigned long long threadid = std::stoull(str);
+    std::cout << "main thread id: " << threadid << std::endl;
+
+    while (true){}
+
+    return 0;
+}
+```
+
+`get_id()` 方法返回的是包装类型的 `std::thread::id` 对象，不可以直接强转成整型，也没有提供转换接口。可以直接通过 `std::cout` 输出流输出，或者通过 `std::oistringstream` 对象转换为字符串类型。
+
 ## 线程管理
 
 线程从创建到销毁的完整流程，需要确保按需启动，有序退出，避免**僵尸线程**（已结束但资源未释放）和**线程泄露**（未正常销毁线程导致资源耗尽）。
@@ -191,6 +250,8 @@ int main() {
 
 `joinable()` 判断线程是否处于可等待或可分离的状态。
 
+实际编码不推荐使用 `detach()`，我们需要使用线程对象控制和管理线程的运行和生命周期，应该尽量保证线程对象在线程运行期间有效。
+
 ### 线程移动语义
 
 `std::thread` 的**拷贝构造函数和拷贝赋值运算符被删除**（禁止拷贝），但支持**移动构造和移动赋值**（线程所有权转移）。
@@ -230,6 +291,18 @@ t2.join();
 - `this_thread::sleep_until(time_point)` 当前线程休眠到指定时间。
 
 线程让步 `this_thread::yield()` 暂时释放 CPU 使用权让渡给同优先级或高优先级的线程，线程让步后仍处于 RUNNABLE 状态没有等待时长，会立即参与下一次 CPU 调度。
+
+## thread_local
+
+C++11 标准提供新的关键字 `thread_local` 定义一个线程局部变量。
+
+```cpp
+thread_local int g_mydata = 1;
+```
+
+- 每个线程都会有线程变量的一个拷贝，互不干扰、互不共享，该局部变量一直到线程退出为止。
+- 与 `static`、`global` 全局变量完全相反，全局变量是所有线程共享，线程局部变量是每个线程独占。
+- 线程局部存储区域空间不大，尽量不要利用这个空间存储大的数据块。如果要使用应该存储在堆内存中，再将堆内存地址指针存储在线程局部存储区域。
 
  ## 常见问题
 
