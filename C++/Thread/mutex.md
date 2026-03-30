@@ -77,15 +77,27 @@ int pthread_rwlock_unlock (pthread_rwlock_t* rwlock);
 
 ## std::mutex
 
-C++11 及以后版本提供了完整了互斥锁库。
+`std::mutex` 是**C++11 标准库**（`<mutex>` 头文件）提供的**基础互斥锁**，是多线程编程的核心同步工具。
 
-| 工具                          | 版本  | 作用                                           |
-| ----------------------------- | ----- | ---------------------------------------------- |
-| **`std::mutex`**              | C++11 | 基础互斥锁，手动 lock/unlock                   |
-| **`std::timed_mutex`**        | C++11 | 有超时机制的互斥锁                             |
-| **`std::recursive_mutex`**    | C++11 | 递归锁，同一线程可多次加锁                     |
-| **`std::shared_timed_mutex`** | C++14 | 具有超时机制的共享互斥锁                       |
-| **`std::shared_mutex`**       | C++17 | 共享互斥锁，读写分离，优化**读多写少**并发场景 |
+多个线程同时读写**共享资源**（变量、数据结构）时，通过锁保证**同一时间只有一个线程**能访问该资源，避免数据错乱。
+
+| 工具                          | 版本  | 作用                                             |
+| ----------------------------- | ----- | ------------------------------------------------ |
+| **`std::mutex`**              | C++11 | 基础互斥锁，手动 lock/unlock                     |
+| **`std::timed_mutex`**        | C++11 | 有超时机制的互斥锁，超时如果还没有拿到锁直接返回 |
+| **`std::recursive_mutex`**    | C++11 | 递归锁，同一线程可多次加锁                       |
+| **`std::shared_timed_mutex`** | C++14 | 具有超时机制的共享互斥锁                         |
+| **`std::shared_mutex`**       | C++17 | 共享互斥锁，读写分离，优化**读多写少**并发场景   |
+
+### 核心操作
+
+1. `lock()`：加锁，锁被占用则**阻塞等待**，直到获取锁；
+2. `unlock()`：解锁，释放锁让其他线程获取；
+3. `try_lock()`：非阻塞尝试加锁，成功返回`true`，失败直接返回`false`。
+4. **`try_lock_for(时间段)`**：尝试加锁，等待**指定时长**（如 100 毫秒），超时未拿到则返回 `false`；
+5. **`try_lock_until(时间点)`**：尝试加锁，等待**到指定时间点**（如 2025-05-20 10:00:00），超时返回 `false`；
+
+### 互斥锁包装器
 
 为了避免死锁，互斥锁的加锁、解锁方法要成对使用，通常使用 RAII 进行封装。
 
@@ -95,3 +107,94 @@ C++11 及以后版本提供了完整了互斥锁库。
 | **std::unique_lock** | C++11 | 更加灵活的互斥量管理   |
 | **std::shared_lock** | C++14 | 共享互斥量的管理       |
 | **std::scope_lock**  | C++17 | 多互斥量避免死锁的管理 |
+
+`std::lock_guard` 是 C++ 标准库提供的**RAII 机制互斥锁包装器**，核心作用是**自动管理互斥锁（`std::mutex`）的加锁和解锁**，避免手动操作锁导致的死锁、资源泄漏问题。
+
+```cpp
+#include <mutex>
+std::mutex mtx;
+void func() {
+    std::lock_guard<std::mutex> lock(mtx);  // 构造：自动加锁
+    // 临界区代码（线程安全的共享资源操作） 
+} // 离开作用域：析构，自动解锁
+```
+
+`std::unique_lock` 除了自动解锁外，支持延迟加锁、手动解锁、尝试加锁和锁所有权转移。
+
+```cpp
+// ✅ 手动提前解锁，后续代码不占用锁
+std::unique_lock<std::mutex> lock(mtx);  // 构造时自动加锁
+shared_data++;  // 临界区操作
+lock.unlock();
+// 🔒 构造时【不自动加锁】（第二个参数：std::defer_lock）
+std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
+// 先执行无锁的准备工作（不操作共享数据）
+prepare_data();  
+// ✅ 需要时手动加锁
+lock.lock();   
+// 操作共享数据
+lock.unlock(); 
+```
+
+`std::shared_lock` 是 C++14 引入的**共享锁（读锁）RAII 包装器**，专为 `std::shared_mutex` / `std::shared_timed_mutex` 设计，核心是**允许多线程并发读、写操作必须独占**，专门解决**读多写少**场景的并发性能问题。
+
+```cpp
+#include <shared_mutex>
+#include <thread>
+#include <vector>
+#include <iostream>
+
+std::shared_mutex shm;
+int shared_data = 0;
+
+// 读线程：用 shared_lock，多线程可同时读
+void reader(int id) {
+    std::shared_lock<std::shared_mutex> lock(shm); // 自动 lock_shared()
+    std::cout << "Reader " << id << " read: " << shared_data << "\n";
+    // 离开作用域自动 unlock_shared()
+}
+
+// 写线程：用 unique_lock，独占访问
+void writer(int value) {
+    std::unique_lock<std::shared_mutex> lock(shm); // 自动 lock()
+    shared_data = value;
+    std::cout << "Writer updated to: " << value << "\n";
+}
+
+int main() {
+    std::vector<std::thread> readers;
+    for (int i=0; i<5; ++i) readers.emplace_back(reader, i);
+    std::thread w(writer, 42);
+    for (auto& t : readers) t.join();
+    w.join();
+    return 0;
+}
+```
+
+`std::scoped_lock` 是 **C++17 引入的 RAII 锁守卫**，核心是**同时安全锁定多个互斥量、自动防死锁、作用域结束自动解锁**，是多锁场景的首选。
+
+多线程同时操作多个共享资源时，手动加锁易因顺序不一致死锁，`scoped_lock` 自动解决。
+
+```cpp
+#include <mutex>
+#include <thread>
+
+std::mutex mtx1, mtx2;
+int data1 = 0, data2 = 0;
+
+void safe_operation() {
+    // ✅ 同时锁定 mtx1、mtx2，自动防死锁
+    std::scoped_lock lock(mtx1, mtx2);
+    data1++;
+    data2++;
+    // 离开作用域自动逆序解锁
+}
+
+int main() {
+    std::thread t1(safe_operation);
+    std::thread t2(safe_operation);
+    t1.join(); t2.join();
+    return 0;
+}
+```
+
