@@ -198,3 +198,85 @@ int main() {
 }
 ```
 
+## 经验总结
+
+### 减少锁的使用
+
+实际开发中应该尽量减少锁的使用，使用锁产生的性能损耗主要在：
+
+- 加锁和解锁操作
+- 临界区代码无法并发执行
+- 进入临界区过于频繁，线程间对临界区争夺激烈，在 CPU 执行上下文切换消耗
+
+替代锁的方式：无锁队列。
+
+### 明确锁的范围
+
+明确加锁的资源边界，精确锁定最小作用域。
+
+```cpp
+if(hashtable.is_empty())
+{
+    pthread_mutex_lock(&mutex);
+    htable_insert(hashtable, &elem);
+    pthread_mutex_unlock(&mutex);
+}
+```
+
+`is_empty` 条件判断完后在加锁前状态改变，这时候仍执行条件内的操作，会导致结果于代码表达的意思不一致。
+
+```cpp
+pthread_mutex_lock(&mutex);
+if(hashtable.is_empty())
+{
+    htable_insert(hashtable, &elem);
+}
+pthread_mutex_unlock(&mutex);
+```
+
+### 减少锁的粒度
+
+减小锁使用粒度指的是尽量减小锁作用的临界区代码范围，临界区的代码范围越小，多个线程排队进入临界区的时间就会越短。
+
+```cpp
+void TaskPool::addTask(Task* task)
+{
+    std::shared_ptr<Task> spTask;
+    spTask.reset(task);
+
+    {
+        std::lock_guard<std::mutex> guard(m_mutexList);             
+        m_taskList.push_back(spTask);
+    }
+    
+    m_cv.notify_one();
+}
+
+void EventLoop::doPendingFunctors()
+{
+	std::vector<Functor> functors;
+	
+	{// 通过局部变量保存共享数据 pendingFunctors_ 减少临界区
+		std::unique_lock<std::mutex> lock(mutex_);
+		functors.swap(pendingFunctors_);
+	}
+
+	for (size_t i = 0; i < functors.size(); ++i)
+	{
+		functors[i]();
+	}	
+}
+```
+
+### 避免死锁
+
+- 函数加锁操作，在函数退出前要记得解锁。
+- 线程退出一定要及时释放持有的锁，线程结束锁不会自动释放。
+- 多线程请求锁的方向要一致，避免死锁。
+- 同一线程重复请求一个锁，要搞清楚锁的行为，是递增引用计数，还是会阻塞或直接获得锁。
+
+### 避免活锁
+
+活锁是在多个线程使用 `trylock()` 系列函数，由于多个线程互相谦让，导致某段时间锁资源可用也让需要锁的线程拿不到锁。
+
+实际编码中要尽量避免，不要过多使用 `trylock()` 请求锁。

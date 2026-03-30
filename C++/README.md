@@ -39,6 +39,7 @@
   - [条件变量](./Thread/condition_variable.md) - 用于线程间的**等待通知机制**，实现生产者-消费者模型。
   - [原子操作](./Thread/atomic.md) - 通过 CPU 指令实现无需互斥锁来保证线程安全。
   - [信号量](./Thread/semaphore.md) - 通过计数器来控制同时访问共享资源的线程数。
+- [线程变量](Thread/thread_local.md) - 线程变量在每个线程都拥有一份自己的数据。
 - [线程池](./Thread/thread_pool.md) - 通过池化技术管理和复用线程，解决频繁创建销毁线程带来的资源浪费和性能损耗。
 
 ## 设计模式
