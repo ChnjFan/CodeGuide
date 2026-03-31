@@ -92,3 +92,5 @@
 - [tcpdump](./Tools/tcpdump.md) - 命令行抓包工具。
 - [ifconfig](./Tools/ifconfig.md) - 查看网络接口信息。
 - [netstat](./Tools/netstat.md) - 查看网络状态和连接信息。
+- [lsof](./Tools/lsof.md) - 查看已经打开的文件描述符。
+- [nc](./Tools/nc.md) - netcat 核心是读写 TCP/IP 连接，可用做客户端或服务器，用于调试、传输和扫描。
