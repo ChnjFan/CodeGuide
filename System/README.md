@@ -28,6 +28,7 @@
 
 ## Redis
 
-Redis 核心知识：
+Redis 基于内存的**键值（Key-Value）NoSQL 数据库**，常驻内存、速度极快，也支持持久化落盘防数据丢失。
 
 - [Redis 数据结构](./Redis/datastruct.md)：Redis 对外暴露的核心数据类型包括字符串、哈希、列表、集合和有序集合。
+- [网络通信模块](./Redis/network.md)：Redis 单线程处理命令（主线程），封装 `ae` 事件库，底层适配 `epoll/kqueue/select`，只监听**可读、可写、异常**文件事件，不阻塞轮询，高并发下开销极低。

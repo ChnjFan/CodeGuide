@@ -106,3 +106,5 @@ type = struct connListener {
 (gdb) 
 ```
 
+ 调试多线程程序，通过设置 `set scheduler-locking on` 将程序执行流锁定在当前调试线程，防止继续执行时调转到其他线程。
+
