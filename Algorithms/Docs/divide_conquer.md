@@ -32,3 +32,33 @@ void dfs(Problem *p) {
 }
 ```
 
+## 典型题目
+
+### 归并排序
+
+链表排序问题，时间复杂度是 O(n logn)
+
+1. 使用二分查找找到链表的中间节点，将链表分为两部分；
+2. 分别对两部分链表进行排序；
+3. 将排好序的两部分链表合并为同一个链表
+
+```cpp
+ListNode* sort(ListNode* root) {
+    if (!root || !root->next) return root;// 空或者只有一个节点不需要排序
+    // 快慢指针找中点
+    ListNode *slow = root, *fast = root->next;
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+    }
+    ListNode *mid = slow->next;
+    slow->next = nullptr;
+    
+    // 分别对两部分链表排序
+    ListNode *left = sort(root);
+    ListNode *right = sort(root);
+    // 将两部分链表合并在一起
+    return mearge(left, right);
+}
+```
+
