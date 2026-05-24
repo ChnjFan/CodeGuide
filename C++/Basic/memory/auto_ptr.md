@@ -112,17 +112,17 @@ int main() {
 - 额外开销：维护堆上的引用计数，引用计数增减的原子操作。
 - 支持拷贝和赋值操作：拷贝时仅增加引用计数。
 
-**1、引用计数为什么不在对象内部？**
+#### 引用计数为什么不在对象内部
 
 引用计数存储在堆内存中，保证指向同一资源的 `std::shared_ptr` 能共享同一个计数，拷贝构造时只复制该计数的指针。
 
-**2、`std::shared_ptr` 的线程安全问题。**
+#### 线程安全问题
 
 - 引用计数的增减是线程安全的，增减是原子操作，多线程拷贝和销毁不会导致计数计算错误。
 - 资源本身不是线程安全的，多个线程通过 `std::shared_ptr` 访问或修改资源需要手动加锁。
 - `std::shared_ptr` 对象的读写不是线程安全的，多线程对 `std::shared_ptr` 对象执行 `reset()` 或赋值操作需要加锁保护。
 
-**3、`std::shared_ptr` 的循环引用问题。**
+#### 循环引用问题
 
 两个或多个 `std::shared_ptr` 相互持有对方的引用，导致引用计数无法归零，最终导致内存泄露。
 
@@ -147,6 +147,35 @@ b.a_ptr = a;
 4. 所以对象 `a` 和对象 `b` 在析构之后的引用计数都为 1，造成内存泄露。
 
  栈上的 `shared_ptr` 析构只能释放自己的引用，但循环引用还让对象内部持有一份引用，这份引用因为对象没有析构而无法释放。
+
+#### 缺点和易错点
+
+- 性能开销比 `unique_ptr` 大：每个对象包含计数器、析构器和分配器等内存占用，引用计数使用原子操作在多线程下存在开销。
+- 循环引用问题：两个对象互相持有 `shared_ptr` 无法释放。
+- 线程安全问题：引用计数线程安全，但是对象本身和读写不是线程安全。
+
+裸指针混用时重复管理可能会出现二次释放，推荐使用 `make_shared` 构造只能指针，不要使用裸指针托管。
+
+```cpp
+int *p = new int;
+std::shared_ptr<int> s1(p);
+std::shared_ptr<int> s2(p); // 重复释放指针
+
+struct Node {
+    //用 this 裸指针构建 shared_ptr 也会造成重复析构 
+    auto get() { return std::shared_ptr<Node>(this); }  
+};
+
+// 应该用 shared_from_this
+struct Node : public enable_shared_from_this<Node> {
+    auto get() { return shared_from_this(); }
+};
+// 必须使用 shared_ptr 托管对象才能使用 shared_from_this
+auto p = std::make_shared<Node>();
+auto p1 = p->get();
+```
+
+`use_count()` 获取引用计数的值，在多线程下随时可能发生变化，不能用作业务逻辑判断。
 
 ### std::weak_ptr
 
