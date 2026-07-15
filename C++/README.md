@@ -47,6 +47,7 @@
 设计模式是软件开发中，经过验证的、在特定场景的解决方案。
 
 - [设计原则](./DesignPattern/principle.md) - 六大设计原则：单一职责、开放封闭、里氏代换、依赖倒置、接口隔离。
+- [时间轮设计](./DesignPattern/timewheel.md) - 高性能场景下后台处理大量延时任务。
 
 ## 标准模板库
 
@@ -60,9 +61,7 @@ STL（Standard Template Library）标准模板库是 C++ 标准库的核心部�
 
 - **序列式容器**：元素插入顺序存储，通过下标访问。
   - [vector](./STL/vector.md) - 动态数组，底层是连续内存，支持快速随机访问，尾部插入删除效率高。
-  
   - [list](./STL/list.md) - 双向链表，不支持随机访问，任意位置插入删除效率高。
-  
   - [deque](./STL/deque.md) - 双端队列，底层是分段连续内存，支持收尾快速插入删除，支持随机访问。
   
 - **关联式容器**：元素按关键字排序存储，底层为红黑树或哈希表。
@@ -96,3 +95,6 @@ STL 算法是对容器的数据执行通用操作，定义在 `<algorithm>` 头�
 - 数值计算
   - [accumulate](./STL/accumulate.md) - 数值计算。
   - [count](./STL/count.md) - 计数。
+
+[timewheel.md]: 
+[./DesignPattern/timewheel.md]: 
