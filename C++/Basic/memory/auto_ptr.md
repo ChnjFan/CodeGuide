@@ -44,6 +44,37 @@ private:
 };
 ```
 
+### 常见问题
+
+RAII 在管理资源的时候最好只管理一种资源，否则可能在构造函数抛出异常的时候不会调用 CGO 函数释放其他资源。
+
+```cpp
+class Connection {
+public:
+    Connection(const std::string& url) {
+        fd_ = open(url.c_str()); // 假设这是某个资源句柄
+        buffer_ = new char[1024];
+    }  
+    ~Connection() {
+        close(fd_);
+        delete buffer_;
+    }
+    Connection(const Connection& other) 
+        : fd_(other.fd_), buffer_(other.buffer_) {} 
+private:
+    int fd_;
+    char* buffer_;
+};
+```
+
+上面的代码中有三处问题:
+
+- 拷贝构造函数中的前拷贝可能会导致 **double free**，复制构造函数直接复制了 `fd_` 和 `buffer_`。两个对象析构时会对同一个 `fd_` 调两次 close、同一个 `buffer_` 调两次 `delete`。
+- **delete vs delete[] 不匹配**：`new char[1024]` 是数组，析构中必须用 `delete[] buffer_`，用 `delete` 是 UB（未定义行为），轻则内存泄漏重则堆破坏。
+- **构造函数异常安全不完整**：如果 `new char[1024]` 失败（抛 `bad_alloc`），构造函数不会完成，析构函数不会被调用——此时 open 打开的 fd_ 就泄漏了。
+
+正确做法是构造函数中不直接裸 new，而是使用智能指针，或者内存资源和链接资源分别使用两个 RAII 类管理。
+
 ## 智能指针
 
 智能指针是根据 RAII 封装裸指针，管理内存申请释放，避免手动申请释放造成的内存泄露、重复释放和野指针等问题。

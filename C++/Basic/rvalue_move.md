@@ -56,15 +56,7 @@ MyString s2 = std::move(s); // 使用拷贝构造函数
 ```cpp
 class MyString {
 public:
-    // 构造函数
-    MyString(const char* str = "") {
-        if (str == nullptr) str = "";
-        m_size = strlen(str);
-        m_data = new char[m_size + 1];
-        strcpy(m_data, str);
-        std::cout << "构造函数：分配内存" << std::endl;
-    }
-
+    MyString(const char* str = "") { ... }
     // 拷贝构造函数（深拷贝）
     MyString(const MyString& other) {
         m_size = other.m_size;
@@ -72,31 +64,11 @@ public:
         strcpy(m_data, other.m_data);  // 拷贝数据
         std::cout << "拷贝构造函数：深拷贝" << std::endl;
     }
-
-    // 析构函数
-    ~MyString() {
-        if (m_data) {
-            delete[] m_data;
-            m_data = nullptr;
-            std::cout << "析构函数：释放内存" << std::endl;
-        }
-    }
-
+    ~MyString() { ... }
 private:
     char* m_data; // 动态分配的内存
     size_t m_size;
 };
-
-// 测试函数：返回一个MyString临时对象
-MyString createString() {
-    MyString str("hello world");
-    return str;
-}
-
-int main() {
-    MyString s = createString(); // 调用拷贝构造？
-    return 0;
-}
 ```
 
 `createString()` 返回一个临时对象（右值），赋值时会调用拷贝构造函数：分配新内存并拷贝数据。
@@ -113,16 +85,14 @@ MyString(MyString&& other) noexcept {
     // 直接“偷”走other的资源
     m_data = other.m_data;
     m_size = other.m_size;
-
     // 将other置为空，避免析构时释放资源
     other.m_data = nullptr;
     other.m_size = 0;
-
     std::cout << "移动构造函数：转移资源" << std::endl;
 }
 ```
 
-STL（如 `std::vector`）在扩容时，如果移动构造函数标记了 `noexcept` （表示不会抛出异常）就会用移动而不是拷贝构造函数。如果没有 `noexcept` 为了保证异常安全，容器会退回到拷贝构造，移动语义失效。
+STL（如 `std::vector`）在扩容时，如果移动构造函数标记了 `noexcept` （表示不会抛出异常）就会用移动而不是拷贝构造函数。如果没有 `noexcept` 为了保证异常安全，容器会退化到拷贝构造，移动语义失效。
 
 [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#rc-move-noexcept) 明确要求：移动构造函数和移动赋值运算符必须标记为 `noexcept`。
 
@@ -149,18 +119,14 @@ MyString& operator=(MyString&& other) noexcept {
     if (this == &other) { // 防止自赋值
         return *this;
     }
-
     // 释放当前对象的资源
     delete[] m_data;
-
     // 转移other的资源
     m_data = other.m_data;
     m_size = other.m_size;
-
     // 置空other
     other.m_data = nullptr;
     other.m_size = 0;
-
     std::cout << "移动赋值运算符：转移资源" << std::endl;
     return *this;
 }

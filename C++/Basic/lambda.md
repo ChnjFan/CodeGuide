@@ -67,3 +67,48 @@ public:
 };
 ```
 
+## Lambda 实现
+
+lambda 在 C+++ 中本质上是在编译期生成的一个**匿名类对象**，通过重载可调用操作符 `operator()` 实现调用执行。
+
+```cpp
+int main() { 
+  class __lambda_6_15 {
+    public: 
+    inline /*constexpr */ int operator()(int a, int b) const {
+      return a + b;
+    }
+    using retType_6_15 = int (*)(int, int);// 无捕获 Lambda 可以隐式转换为函数指针
+    inline constexpr operator retType_6_15 () const noexcept {
+      return __invoke;
+    };
+    private: 
+    static inline /*constexpr */ int __invoke(int a, int b) {
+      return __lambda_6_15{}.operator()(a, b);
+    }
+  };
+  __lambda_6_15 ld = __lambda_6_15{};
+  std::cout.operator<<(ld.operator()(1, 2));// Lambda 实际是执行调用运算符
+  return 0;
+}
+```
+
+我们通过 cppinsights 运行可以看到，C++ 编译期将 Lambda 表达式生成了一个类，并且重载了 `operator()` 来实现 Lambda 的函数体。
+
+重载的  `operator()` 默认是 `const`，不可修改自身的内部状态，值传递默认是不可变的。
+
+如果有捕获的变量，则在类中通过成员变量来保存。
+
+```cpp
+class __lambda_7_15
+{
+	public: 
+	inline /*constexpr */ int operator()(int a, int b) const {
+  		return a + b;
+	}
+	// private: 
+	int cc;
+	int & dd;
+};
+```
+
